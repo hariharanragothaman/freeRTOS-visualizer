@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.9"
 pyserial = "^3.5"
 PyQt5 = "^5.15"
 matplotlib = "^3.4"
