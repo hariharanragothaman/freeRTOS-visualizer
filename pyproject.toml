@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry]
 name = "freertos-visualizer"  # Keep the package name with dashes, but not for the package directory
-version = "0.1.2"
+version = "0.1.4"
 description = "A Python tool for real-time FreeRTOS task state visualization"
 authors = ["Hariharan Ragothaman <hariharanragothaman@gmail.com>"]
 license = "MIT"
