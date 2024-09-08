@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.poetry]
-name = "freeRTOS-visualizer"
+name = "freertos-visualizer"  # Keep the package name with dashes, but not for the package directory
 version = "0.1.2"
 description = "A Python tool for real-time FreeRTOS task state visualization"
 authors = ["Hariharan Ragothaman <hariharanragothaman@gmail.com>"]
@@ -24,5 +24,5 @@ pyserial = "^3.5"
 PyQt5 = "^5.15"
 matplotlib = "^3.4"
 
-[tool.poetry.scripts]  # This will create a CLI command for your package
-rtos-visualize = "rtos_visualizer.visualize:main"
+[tool.poetry.scripts]
+rtos-visualize = "freertos_visualizer.visualize:main"  # Updated to match the correct module
