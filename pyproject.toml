@@ -9,8 +9,8 @@ description = "A Python tool for real-time FreeRTOS task state visualization"
 authors = ["Hariharan Ragothaman <your.email@example.com>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/yourusername/rtos-visualizer"
-repository = "https://github.com/yourusername/rtos-visualizer"
+homepage = "https://github.com/hariharanragothaman/freeRTOS-visualizer"
+repository = "https://github.com/hariharanragothaman/freeRTOS-visualizer"
 keywords = ["FreeRTOS", "visualizer", "real-time", "Python"]
 classifiers = [
     "Programming Language :: Python :: 3",
