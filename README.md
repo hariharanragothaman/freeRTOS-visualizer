@@ -14,8 +14,8 @@ A Python-based tool that provides real-time visualization of task states in a Fr
 ## Installation
 
 ### Prerequisites
-- Python 3.x
-- pip
+- `python3.x`
+- `pip3`
 
 ### Steps
 1. **Clone the Repository:**
