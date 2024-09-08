@@ -3,10 +3,10 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.poetry]
-name = "rtos-visualizer"  # Replace with your package name
-version = "0.1.0"  # Update the version as needed
+name = "freertos-visualizer"  
+version = "0.1.0"
 description = "A Python tool for real-time FreeRTOS task state visualization"
-authors = ["Hariharan Ragothaman <your.email@example.com>"]
+authors = ["Hariharan Ragothaman <hariharanragothaman@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/hariharanragothaman/freeRTOS-visualizer"
