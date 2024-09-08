@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry]
 name = "freertos-visualizer"  
-version = "0.1.0"
+version = "0.1.1"
 description = "A Python tool for real-time FreeRTOS task state visualization"
 authors = ["Hariharan Ragothaman <hariharanragothaman@gmail.com>"]
 license = "MIT"
