@@ -25,4 +25,8 @@ PyQt5 = "^5.15"
 matplotlib = "^3.4"
 
 [tool.poetry.scripts]
-rtos-visualize = "freertos_visualizer.visualize:main"  # Updated to match the correct module
+rtos-visualize = "freertos_visualizer.visualize:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
