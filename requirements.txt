@@ -1,3 +1,4 @@
 pyserial
 PyQt5
 matplotlib
+pytest
