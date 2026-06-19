@@ -116,10 +116,15 @@ different but reproducible stream.
 
 ### Run (against real hardware / QEMU)
 
+Your firmware has to *emit* the protocol. Drop in the trace shim under
+[`firmware/`](firmware/) (`trace_shim.c` + `trace_shim.h`): it uses
+`uxTaskGetSystemState` to print `Task:<name>,State:<code>,Tick:<n>` for every
+task — see [firmware/README.md](firmware/README.md) for the 3-step integration.
+
 **1. Start QEMU with serial redirection:**
 
 ```bash
-qemu-system-arm -M mps2-an385 -kernel RTOSDemo.axf -nographic \
+qemu-system-arm -M mps2-an385 -kernel your_app.elf -nographic \
   -serial tcp::12345,server,nowait
 ```
 
@@ -328,6 +333,8 @@ freertos_visualizer/
   stats.py              # Per-task statistics (compute_summary / format_summary)
   render.py             # Shared matplotlib drawing (bar chart + timeline)
   security.py           # Untrusted-input sanitizers + resource-bound defaults
+firmware/
+  trace_shim.c / .h     # FreeRTOS C shim that emits the protocol (the device side)
 examples/
   run_demo.py           # Launch the GUI against the simulator
   print_stats.py        # Headless stats table
@@ -372,7 +379,7 @@ Tracked as GitHub issues:
 - [x] [Loopback integration test: no dropped lines (#21)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21)
 - [x] [Full `eTaskState` set (#23)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) · [regex anchor (#27)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/27) · [clock unify (#26)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/26) · [cleanup (#28)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/28)
 - [x] [PEP 621 packaging (#20)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20)
-- [ ] [Firmware trace shim example (#22)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22)
+- [x] [Firmware trace shim example (#22)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22)
 - [ ] [Bar-chart semantics (#24)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) · [timeline caching (#25)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25)
 
 ---
