@@ -81,3 +81,18 @@ def test_feeds_store_end_to_end():
     # Every default task should have accumulated history.
     assert set(store.task_states.keys()) == set(DEFAULT_TASKS)
     assert all(len(h) > 0 for h in store.task_states.values())
+
+
+def test_emit_tick_appends_monotonic_tick():
+    sim = TaskSimulator(seed=1, emit_tick=True)
+    first = parse_serial_line(sim.next_line())
+    second = parse_serial_line(sim.next_line())
+    assert first[2] == 0
+    assert second[2] == 1
+
+
+def test_rate_hz_paces_readline():
+    slept = []
+    sim = TaskSimulator(seed=2, rate_hz=100.0, _sleep=slept.append)
+    sim.readline()
+    assert slept == [pytest.approx(0.01)]

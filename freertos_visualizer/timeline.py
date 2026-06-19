@@ -14,6 +14,8 @@ STATE_COLORS = {
     "Ready": "#1f77b4",      # blue
     "Blocked": "#ff7f0e",    # orange
     "Suspended": "#d62728",  # red
+    "Deleted": "#9467bd",    # purple
+    "Invalid": "#8c564b",    # brown
     "Unknown": "#7f7f7f",    # grey
 }
 

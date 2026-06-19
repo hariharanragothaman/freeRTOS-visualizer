@@ -8,6 +8,7 @@ The :class:`TaskSimulator` is a drop-in replacement for
 ``readline`` and ``close``, so the GUI can run against it directly.
 """
 
+import time
 import random
 
 from freertos_visualizer.visualize import STATE_DICT
@@ -36,9 +37,16 @@ class TaskSimulator:
         Iterable of task names to emit. Defaults to :data:`DEFAULT_TASKS`.
     seed:
         Seed for the internal PRNG. The same seed always yields the same stream.
+    emit_tick:
+        When ``True``, append a monotonic device tick (``,Tick:<n>``) to each
+        line so timing is device-relative rather than host-read-relative.
+    rate_hz:
+        When set, :meth:`readline` paces output to ~``rate_hz`` lines/second so
+        a live demo behaves like a real device feeding the threaded reader.
     """
 
-    def __init__(self, tasks=DEFAULT_TASKS, seed=0):
+    def __init__(self, tasks=DEFAULT_TASKS, seed=0, emit_tick=False, tick_step=1,
+                 rate_hz=None, _sleep=time.sleep):
         self.tasks = list(tasks)
         if not self.tasks:
             raise ValueError("TaskSimulator requires at least one task")
@@ -48,6 +56,11 @@ class TaskSimulator:
         # Every task starts Ready ("1").
         self._current = {task: "1" for task in self.tasks}
         self._next_index = 0
+        self._tick = 0
+        self.emit_tick = emit_tick
+        self.tick_step = tick_step
+        self.rate_hz = rate_hz
+        self._sleep = _sleep
         self.connected = False
 
     def connect(self):
@@ -61,17 +74,23 @@ class TaskSimulator:
         return chosen[0]
 
     def next_line(self):
-        """Return the next ``Task:<name>,State:<code>`` line as a string."""
+        """Return the next protocol line as a string."""
         task = self.tasks[self._next_index % len(self.tasks)]
         self._next_index += 1
         new_state = self._advance(self._current[task])
         self._current[task] = new_state
+        if self.emit_tick:
+            tick = self._tick
+            self._tick += self.tick_step
+            return f"Task:{task},State:{new_state},Tick:{tick}"
         return f"Task:{task},State:{new_state}"
 
     def readline(self):
         """SerialConnection-compatible alias for :meth:`next_line`."""
         if not self.connected:
             self.connect()
+        if self.rate_hz:
+            self._sleep(1.0 / self.rate_hz)
         return self.next_line()
 
     def stream(self, count):
