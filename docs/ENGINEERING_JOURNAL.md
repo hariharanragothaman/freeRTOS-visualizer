@@ -22,7 +22,7 @@ working through them.
 | [#19](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/19) | Timestamps come from host read time, not device | High | Fixed (protocol + ingest) |
 | [#20](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20) | Packaging: setuptools backend but poetry-only metadata; deps duplicated | High | Fixed |
 | [#21](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21) | No integration test for the serial-timing path (where the bug lives) | High | Fixed |
-| [#22](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22) | Ships zero firmware; no trace shim to produce the protocol | Medium | Tracked |
+| [#22](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22) | Ships zero firmware; no trace shim to produce the protocol | Medium | Fixed |
 | [#23](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) | `eDeleted (4)` / `eInvalid (5)` collapse to "Unknown" | Low | Fixed |
 | [#24](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) | Bar-chart y-axis magnitude is semantically empty | Low | Tracked |
 | [#25](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25) | `compute_segments` rebuilds full history every tick | Low | Tracked |
@@ -88,10 +88,21 @@ optional-dependency extras. Deps now live in **one** place — `requirements.txt
 and CI both install from the package (`-e .[gui,dev]` / `pip install .[dev]`),
 which also makes CI validate that the packaging resolves.
 
+### Firmware trace shim (#22)
+
+The repo was named freeRTOS-visualizer but shipped zero C, and the README's
+QEMU command assumed an `RTOSDemo.axf` that emits the protocol but doesn't exist
+here. Added [`firmware/`](../firmware/): a portable, dependency-free
+`trace_shim.c`/`.h` that uses `uxTaskGetSystemState` to print
+`Task:<name>,State:<code>,Tick:<n>` for every task (sanitizing names to the
+comma/whitespace-free field the host parser expects, and using the device tick).
+A `firmware/README.md` documents the 3-step integration. This closes the biggest
+onboarding gap and makes the tool demonstrably end-to-end.
+
 ### Deferred (tracked, not yet done)
 
-- **#22 firmware trace shim**, **#24 bar-chart semantics**, **#25 timeline
-  segment caching** are filed and scheduled as follow-up work.
+- **#24 bar-chart semantics** and **#25 timeline segment caching** are filed and
+  scheduled as follow-up work.
 
 ### What the reviewer said was good (kept)
 
