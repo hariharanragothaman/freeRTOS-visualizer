@@ -141,6 +141,37 @@ LED_Blink,1,1718764813.33,Running
 
 ---
 
+## Task Statistics
+
+Compute a per-task breakdown — sample counts, state transitions, and
+state distribution (with time-in-state percentages when timestamps are present):
+
+```bash
+python examples/print_stats.py --samples 500
+# or
+make stats
+```
+
+```
+Task           Samples  Transitions  State distribution (by samples)
+--------------------------------------------------------------------
+LED_Blink          100           72  Running 17%, Ready 37%, Blocked 35%, Suspended 11%
+SensorRead         100           79  Running 37%, Ready 38%, Blocked 18%, Suspended 7%
+```
+
+Programmatic use:
+
+```python
+from freertos_visualizer import TaskStateStore
+
+store = TaskStateStore()
+store.ingest_line("Task:LED,State:1")
+store.ingest_line("Task:LED,State:0")
+print(store.summary())   # {'LED': {'samples': 2, 'transitions': 1, ...}}
+```
+
+---
+
 ## Serial Protocol
 
 The tool expects lines in the format:

@@ -10,9 +10,12 @@ Run with::
     python examples/run_demo.py
 """
 
+import os
 import sys
 
-from freertos_visualizer.visualize import main
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from freertos_visualizer.visualize import main  # noqa: E402
 
 if __name__ == "__main__":
     # Inject the --demo flag and hand off to the normal entry point.

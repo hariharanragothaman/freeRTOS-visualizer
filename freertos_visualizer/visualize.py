@@ -89,6 +89,12 @@ class TaskStateStore:
             self.task_states.get(task_name, []),
         ))
 
+    def summary(self):
+        """Return per-task statistics (see :func:`stats.compute_summary`)."""
+        from freertos_visualizer.stats import compute_summary
+
+        return compute_summary(self)
+
     def export_csv(self, output_path):
         with open(output_path, "w", newline="", encoding="utf-8") as csv_file:
             writer = csv.writer(csv_file)
