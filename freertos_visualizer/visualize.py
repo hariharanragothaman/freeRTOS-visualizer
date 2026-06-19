@@ -230,6 +230,11 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
         self.export_csv_path = export_csv_path
         self.view = view
         self.store = TaskStateStore()
+        from freertos_visualizer.timeline import SegmentCache
+
+        # Reused across repaints so the timeline appends instead of rebuilding
+        # the full history each frame.
+        self._segment_cache = SegmentCache()
 
         self.initUI()
         self.reader.start()
@@ -274,7 +279,7 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
     def plot_timeline(self):
         from freertos_visualizer.render import draw_timeline
 
-        draw_timeline(self.canvas.axes, self.store)
+        draw_timeline(self.canvas.axes, self.store, cache=self._segment_cache)
         self.canvas.draw()
 
     def closeEvent(self, event):

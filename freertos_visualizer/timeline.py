@@ -52,5 +52,81 @@ def compute_segments(store):
     return segments
 
 
+class SegmentCache:
+    """Incrementally maintains Gantt segments as samples are appended.
+
+    :func:`compute_segments` rebuilds every task's full history on each call —
+    O(total samples) per repaint. Once ingest is decoupled from paint
+    (`SerialReader`), that recompute dominates a long session. This cache keeps a
+    per-task running span and only appends *new* samples; it falls back to a full
+    rebuild for a task whose history was trimmed/reset (so it stays correct under
+    ``max_history`` eviction). Output is identical to :func:`compute_segments`.
+    """
+
+    def __init__(self):
+        self._state = {}
+
+    def update(self, store):
+        result = {}
+        for task_name, states in store.task_states.items():
+            stamps = store.task_timestamps.get(task_name, [])
+            n = min(len(states), len(stamps))
+            st = self._state.get(task_name)
+            trimmed = (
+                st is None
+                or st["count"] == 0
+                or n < st["count"]
+                or (n and stamps[0] != st["first_ts"])
+            )
+            if trimmed:
+                st = self._rebuild(stamps, states, n)
+            elif n > st["count"]:
+                self._append(st, stamps, states, n)
+            self._state[task_name] = st
+            result[task_name] = self._materialize(st)
+
+        # Forget tasks that no longer exist in the store.
+        for gone in set(self._state) - set(store.task_states):
+            del self._state[gone]
+        return result
+
+    @staticmethod
+    def _rebuild(stamps, states, n):
+        st = {
+            "count": n,
+            "first_ts": stamps[0] if n else None,
+            "completed": [],
+            "run_start": stamps[0] if n else None,
+            "run_state": states[0] if n else None,
+            "last_ts": stamps[0] if n else None,
+        }
+        if n:
+            SegmentCache._append(st, stamps, states, n, _from=1)
+        return st
+
+    @staticmethod
+    def _append(st, stamps, states, n, _from=None):
+        start = st["count"] if _from is None else _from
+        for i in range(start, n):
+            if states[i] != st["run_state"]:
+                st["completed"].append((st["run_start"], stamps[i], st["run_state"]))
+                st["run_start"] = stamps[i]
+                st["run_state"] = states[i]
+            st["last_ts"] = stamps[i]
+        st["count"] = n
+
+    @staticmethod
+    def _materialize(st):
+        if st["run_state"] is None:
+            return []
+        return st["completed"] + [(st["run_start"], st["last_ts"], st["run_state"])]
+
+
 # Keep STATE_DICT importable from here for convenience / discoverability.
-__all__ = ["STATE_COLORS", "state_color", "compute_segments", "STATE_DICT"]
+__all__ = [
+    "STATE_COLORS",
+    "state_color",
+    "compute_segments",
+    "SegmentCache",
+    "STATE_DICT",
+]
