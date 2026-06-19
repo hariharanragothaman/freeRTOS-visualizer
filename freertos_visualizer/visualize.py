@@ -218,78 +218,15 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
             self.plot_task_states()
 
     def plot_task_states(self):
-        self.canvas.axes.clear()
+        from freertos_visualizer.render import draw_bar_chart
 
-        # Prepare data
-        tasks = list(self.store.task_states.keys())
-        if not tasks:
-            self.canvas.axes.set_title('Current Task States')
-            self.canvas.axes.text(0.5, 0.5, "Waiting for task data...", ha="center", va="center")
-            self.canvas.draw()
-            return
-
-        states = [self.store.task_states[task][-1] for task in tasks]
-        state_labels = list(state_dict.values())
-        state_values = [(state_labels.index(state) + 1) if state in state_labels else 0 for state in states]
-
-        # Create bar chart
-        bars = self.canvas.axes.bar(tasks, state_values, color='skyblue')
-
-        # Set labels and title
-        self.canvas.axes.set_ylim(0, len(state_dict) + 1)
-        self.canvas.axes.set_ylabel('Task State')
-        self.canvas.axes.set_title('Current Task States')
-
-        # Set y-ticks to include unknown states.
-        self.canvas.axes.set_yticks(range(0, len(state_dict) + 1))
-        self.canvas.axes.set_yticklabels(['Unknown'] + list(state_dict.values()))
-
-        # Add text labels on bars
-        for bar, state in zip(bars, states):
-            height = bar.get_height()
-            self.canvas.axes.text(bar.get_x() + bar.get_width() / 2., height + 0.1, state, ha='center', va='bottom')
-
+        draw_bar_chart(self.canvas.axes, self.store)
         self.canvas.draw()
 
     def plot_timeline(self):
-        from matplotlib.patches import Patch
+        from freertos_visualizer.render import draw_timeline
 
-        from freertos_visualizer.timeline import (
-            STATE_COLORS,
-            compute_segments,
-            state_color,
-        )
-
-        self.canvas.axes.clear()
-        segments = compute_segments(self.store)
-        tasks = list(segments.keys())
-
-        if not tasks:
-            self.canvas.axes.set_title("Task State Timeline")
-            self.canvas.axes.text(0.5, 0.5, "Waiting for task data...", ha="center", va="center")
-            self.canvas.draw()
-            return
-
-        row_height = 9
-        row_step = 10
-        for idx, task in enumerate(tasks):
-            spans = segments[task]
-            xranges = [(start, max(end - start, 0.0)) for (start, end, _state) in spans]
-            colors = [state_color(state) for (_s, _e, state) in spans]
-            self.canvas.axes.broken_barh(
-                xranges, (idx * row_step, row_height), facecolors=colors,
-            )
-
-        self.canvas.axes.set_yticks([idx * row_step + row_height / 2 for idx in range(len(tasks))])
-        self.canvas.axes.set_yticklabels(tasks)
-        self.canvas.axes.set_xlabel("Time (s)")
-        self.canvas.axes.set_title("Task State Timeline")
-        self.canvas.axes.legend(
-            handles=[Patch(color=color, label=state) for state, color in STATE_COLORS.items()],
-            loc="upper right",
-            fontsize="small",
-            ncol=len(STATE_COLORS),
-        )
+        draw_timeline(self.canvas.axes, self.store)
         self.canvas.draw()
 
     def closeEvent(self, event):
