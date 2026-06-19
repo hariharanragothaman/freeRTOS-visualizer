@@ -64,22 +64,36 @@ Tunables (define before including / compiling):
 | `TRACE_PERIOD_MS` | `50` | Snapshot interval (≈20 Hz) |
 | `TRACE_MAX_TASKS` | `16` | Max tasks captured per snapshot |
 
-## Run it end-to-end
+## Run it end-to-end (no hardware required)
 
-Once your firmware is emitting the protocol over, e.g., a QEMU serial socket:
+A complete, **runnable** QEMU demo lives in [`qemu-demo/`](qemu-demo/). It links
+this exact `trace_shim.c` into a FreeRTOS image for an emulated Cortex-M3 and
+emits the protocol over a UART — so the firmware side is verifiable by anyone:
 
 ```bash
-# QEMU exposing the target UART on TCP :12345
-qemu-system-arm -M mps2-an385 -kernel your_app.elf -nographic \
-  -serial tcp::12345,server,nowait
+cd qemu-demo
+make verify   # builds, boots in QEMU, asserts the host parser accepts the output
+make socket   # exposes the UART on TCP :12345
 
-# Host
+# Host (separate terminal)
 rtos-visualize --serial-url socket://localhost:12345 --view timeline
 ```
 
-No board yet? `rtos-visualize --demo` runs the same pipeline against the built-in
-simulator (which now emits the `Tick` field too), so the host side is verifiable
-without hardware.
+`make verify` boots the image and pipes the captured UART through the *host*
+`parse_serial_line`, proving the round-trip end-to-end. See
+[`qemu-demo/README.md`](qemu-demo/README.md) for details.
+
+For your own board, once it's emitting the protocol over a serial socket:
+
+```bash
+qemu-system-arm -M mps2-an385 -kernel your_app.elf -nographic \
+  -serial tcp::12345,server,nowait
+rtos-visualize --serial-url socket://localhost:12345 --view timeline
+```
+
+No toolchain yet? `rtos-visualize --demo` runs the same pipeline against the
+built-in simulator (which also emits the `Tick` field), so the host side is
+verifiable without hardware.
 
 ## Notes
 

@@ -121,7 +121,12 @@ Your firmware has to *emit* the protocol. Drop in the trace shim under
 `uxTaskGetSystemState` to print `Task:<name>,State:<code>,Tick:<n>` for every
 task — see [firmware/README.md](firmware/README.md) for the 3-step integration.
 
-**1. Start QEMU with serial redirection:**
+Want proof the firmware side actually works? [`firmware/qemu-demo/`](firmware/qemu-demo/)
+is a **runnable** FreeRTOS image that links `trace_shim.c`, boots on an emulated
+Cortex-M3, and emits the protocol — `make verify` builds it and asserts the host
+parser accepts the output. It runs in CI on every push.
+
+**1. Start QEMU with serial redirection** (or `cd firmware/qemu-demo && make socket`):
 
 ```bash
 qemu-system-arm -M mps2-an385 -kernel your_app.elf -nographic \
@@ -335,6 +340,7 @@ freertos_visualizer/
   security.py           # Untrusted-input sanitizers + resource-bound defaults
 firmware/
   trace_shim.c / .h     # FreeRTOS C shim that emits the protocol (the device side)
+  qemu-demo/            # Runnable QEMU FreeRTOS image: links the shim, `make verify`
 examples/
   run_demo.py           # Launch the GUI against the simulator
   print_stats.py        # Headless stats table
@@ -379,7 +385,7 @@ Tracked as GitHub issues:
 - [x] [End-to-end pipeline integration test: no dropped lines (#21)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21)
 - [x] [Full `eTaskState` set (#23)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) · [regex anchor (#27)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/27) · [clock unify (#26)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/26) · [cleanup (#28)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/28)
 - [x] [PEP 621 packaging (#20)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20)
-- [x] [Firmware trace shim example (#22)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22)
+- [x] [Firmware trace shim example (#22)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22) · runnable [QEMU end-to-end demo](firmware/qemu-demo/) (CI-verified)
 - [x] [Bar-chart semantics (#24)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) · [timeline caching (#25)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25)
 
 ---
