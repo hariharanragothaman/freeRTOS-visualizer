@@ -1,31 +1,55 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.poetry]
-name = "freertos-visualizer"  # Keep the package name with dashes, but not for the package directory
-version = "0.1.4"
+[project]
+name = "freertos-visualizer"
+version = "0.1.5"
 description = "A Python tool for real-time FreeRTOS task state visualization"
-authors = ["Hariharan Ragothaman <hariharanragothaman@gmail.com>"]
-license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/hariharanragothaman/freeRTOS-visualizer"
-repository = "https://github.com/hariharanragothaman/freeRTOS-visualizer"
-keywords = ["FreeRTOS", "visualizer", "real-time", "Python"]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Hariharan Ragothaman", email = "hariharanragothaman@gmail.com" },
+]
+keywords = ["FreeRTOS", "visualizer", "real-time", "Python", "embedded", "RTOS"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Topic :: Software Development :: Embedded Systems",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-pyserial = "^3.5"
-PyQt5 = "^5.15"
-matplotlib = "^3.4"
+# Core runtime dependency only. The GUI deps live in the optional `gui` extra so
+# headless consumers (CI, the core library, the simulator) install nothing heavy.
+dependencies = [
+    "pyserial>=3.5",
+]
 
-[tool.poetry.scripts]
+[project.optional-dependencies]
+gui = [
+    "PyQt5>=5.15",
+    "matplotlib>=3.4",
+    "pillow>=9.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "matplotlib>=3.4",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/hariharanragothaman/freeRTOS-visualizer"
+Repository = "https://github.com/hariharanragothaman/freeRTOS-visualizer"
+Issues = "https://github.com/hariharanragothaman/freeRTOS-visualizer/issues"
+
+[project.scripts]
 rtos-visualize = "freertos_visualizer.visualize:main"
+
+[tool.setuptools.packages.find]
+include = ["freertos_visualizer*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

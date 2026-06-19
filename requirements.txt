@@ -1,6 +1,3 @@
-pyserial
-PyQt5
-matplotlib
-pillow
-pytest
-pytest-cov
+# pyproject.toml is the single source of truth for dependencies.
+# This installs the package (editable) with the GUI + dev extras for local work.
+-e .[gui,dev]

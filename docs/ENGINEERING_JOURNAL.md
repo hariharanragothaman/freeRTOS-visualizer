@@ -20,7 +20,7 @@ working through them.
 |---|---------|----------|--------|
 | [#18](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/18) | Reads one line per repaint tick → drains port at paint rate, drops samples | High | Fixed |
 | [#19](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/19) | Timestamps come from host read time, not device | High | Fixed (protocol + ingest) |
-| [#20](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20) | Packaging: setuptools backend but poetry-only metadata; deps duplicated | High | Tracked |
+| [#20](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20) | Packaging: setuptools backend but poetry-only metadata; deps duplicated | High | Fixed |
 | [#21](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21) | No integration test for the serial-timing path (where the bug lives) | High | Fixed |
 | [#22](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22) | Ships zero firmware; no trace shim to produce the protocol | Medium | Tracked |
 | [#23](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) | `eDeleted (4)` / `eInvalid (5)` collapse to "Unknown" | Low | Fixed |
@@ -78,10 +78,20 @@ never touched, and it would have caught #18.
 - **#28** removed the no-op `connect()` try/except wrapper and the premature
   `state_dict` backwards-compat alias.
 
+### Packaging (#20)
+
+`pyproject.toml` declared a setuptools backend but put all metadata under
+`[tool.poetry]`, so a clean `pip install .` against the declared backend got no
+deps, no entry point, and no version. Migrated to a single coherent setup: a
+PEP 621 `[project]` table on the setuptools backend, with `gui` / `dev`
+optional-dependency extras. Deps now live in **one** place — `requirements.txt`
+and CI both install from the package (`-e .[gui,dev]` / `pip install .[dev]`),
+which also makes CI validate that the packaging resolves.
+
 ### Deferred (tracked, not yet done)
 
-- **#20 packaging**, **#22 firmware trace shim**, **#24 bar-chart semantics**,
-  **#25 timeline segment caching** are filed and scheduled as follow-up work.
+- **#22 firmware trace shim**, **#24 bar-chart semantics**, **#25 timeline
+  segment caching** are filed and scheduled as follow-up work.
 
 ### What the reviewer said was good (kept)
 
