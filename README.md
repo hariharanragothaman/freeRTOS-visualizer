@@ -69,7 +69,23 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Run
+### Try it without hardware (demo mode)
+
+No board or QEMU? Run the GUI against the built-in serial simulator:
+
+```bash
+rtos-visualize --demo
+# or
+python -m freertos_visualizer.visualize --demo
+# or
+python examples/run_demo.py
+```
+
+The simulator emits a realistic, seeded stream of `Task:<name>,State:<code>`
+lines so you can see the live bar chart immediately. Use `--seed N` for a
+different but reproducible stream.
+
+### Run (against real hardware / QEMU)
 
 **1. Start QEMU with serial redirection:**
 
@@ -105,6 +121,8 @@ rtos-visualize --export-csv task_history.csv
 | `--timeout` | `1.0` | Serial read timeout (seconds) |
 | `--refresh-ms` | `1000` | GUI refresh interval (milliseconds) |
 | `--export-csv` | *(none)* | Path to write task-history CSV on exit |
+| `--demo` | `false` | Use the built-in serial simulator (no hardware needed) |
+| `--seed` | `0` | Seed for the `--demo` simulator |
 
 **Example — custom endpoint and fast refresh:**
 
