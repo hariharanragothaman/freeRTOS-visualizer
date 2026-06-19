@@ -380,7 +380,7 @@ Tracked as GitHub issues:
 - [x] [Full `eTaskState` set (#23)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) · [regex anchor (#27)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/27) · [clock unify (#26)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/26) · [cleanup (#28)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/28)
 - [x] [PEP 621 packaging (#20)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20)
 - [x] [Firmware trace shim example (#22)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22)
-- [ ] [Bar-chart semantics (#24)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) · [timeline caching (#25)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25)
+- [x] [Bar-chart semantics (#24)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) · [timeline caching (#25)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25)
 
 ---
 

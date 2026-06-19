@@ -11,13 +11,18 @@ only run the core logic tests.
 """
 
 from freertos_visualizer.timeline import STATE_COLORS, compute_segments, state_color
-from freertos_visualizer.visualize import STATE_DICT
 
 _WAITING_TEXT = "Waiting for task data..."
 
 
 def draw_bar_chart(ax, store):
-    """Draw the current-state bar chart for ``store`` onto ``ax``."""
+    """Draw a current-state *status strip* for ``store`` onto ``ax``.
+
+    Each task gets one equal-height cell coloured by its current state, with the
+    state name as the label. Height is constant on purpose: the state is
+    categorical, so colour + label carry the meaning and there is no magnitude
+    axis to mislead (the old ``index+1`` height implied Suspended > Running).
+    """
     ax.clear()
     tasks = list(store.task_states.keys())
     if not tasks:
@@ -25,38 +30,38 @@ def draw_bar_chart(ax, store):
         ax.text(0.5, 0.5, _WAITING_TEXT, ha="center", va="center")
         return
 
-    state_labels = list(STATE_DICT.values())
     states = [store.task_states[task][-1] for task in tasks]
-    values = [
-        (state_labels.index(state) + 1) if state in state_labels else 0
-        for state in states
-    ]
     colors = [state_color(state) for state in states]
 
-    bars = ax.bar(tasks, values, color=colors)
-    ax.set_ylim(0, len(STATE_DICT) + 1)
-    ax.set_ylabel("Task State")
+    bars = ax.bar(tasks, [1] * len(tasks), color=colors)
+    ax.set_ylim(0, 1)
+    ax.set_yticks([])  # no magnitude axis: state is categorical
     ax.set_title("Current Task States")
-    ax.set_yticks(range(0, len(STATE_DICT) + 1))
-    ax.set_yticklabels(["Unknown"] + state_labels)
 
     for bar, state in zip(bars, states):
         ax.text(
             bar.get_x() + bar.get_width() / 2.0,
-            bar.get_height() + 0.1,
+            0.5,
             state,
             ha="center",
-            va="bottom",
+            va="center",
+            color="white",
+            fontweight="bold",
         )
     return bars
 
 
-def draw_timeline(ax, store, row_height=9, row_step=10):
-    """Draw a Gantt-style task-state timeline for ``store`` onto ``ax``."""
+def draw_timeline(ax, store, cache=None, row_height=9, row_step=10):
+    """Draw a Gantt-style task-state timeline for ``store`` onto ``ax``.
+
+    Pass a :class:`~freertos_visualizer.timeline.SegmentCache` as ``cache`` to
+    reuse previously-computed spans across repaints instead of rebuilding the
+    full history every frame.
+    """
     from matplotlib.patches import Patch
 
     ax.clear()
-    segments = compute_segments(store)
+    segments = cache.update(store) if cache is not None else compute_segments(store)
     tasks = list(segments.keys())
     if not tasks:
         ax.set_title("Task State Timeline")

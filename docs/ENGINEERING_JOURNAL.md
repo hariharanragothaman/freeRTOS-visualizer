@@ -24,8 +24,8 @@ working through them.
 | [#21](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21) | No integration test for the serial-timing path (where the bug lives) | High | Fixed |
 | [#22](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22) | Ships zero firmware; no trace shim to produce the protocol | Medium | Fixed |
 | [#23](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) | `eDeleted (4)` / `eInvalid (5)` collapse to "Unknown" | Low | Fixed |
-| [#24](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) | Bar-chart y-axis magnitude is semantically empty | Low | Tracked |
-| [#25](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25) | `compute_segments` rebuilds full history every tick | Low | Tracked |
+| [#24](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) | Bar-chart y-axis magnitude is semantically empty | Low | Fixed |
+| [#25](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25) | `compute_segments` rebuilds full history every tick | Low | Fixed |
 | [#26](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/26) | Two clock-injection conventions | Low | Fixed |
 | [#27](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/27) | `Task:(\S+)` swallows commas | Low | Fixed |
 | [#28](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/28) | No-op `connect()` wrapper + premature `state_dict` alias | Low | Fixed |
@@ -99,10 +99,22 @@ comma/whitespace-free field the host parser expects, and using the device tick).
 A `firmware/README.md` documents the 3-step integration. This closes the biggest
 onboarding gap and makes the tool demonstrably end-to-end.
 
-### Deferred (tracked, not yet done)
+### Rendering polish (#24, #25)
 
-- **#24 bar-chart semantics** and **#25 timeline segment caching** are filed and
-  scheduled as follow-up work.
+- **#24** The bar chart encoded state as bar *height* (`index+1`), implying
+  Suspended (4) was "more" than Running (1) — meaningless for a categorical
+  value. Replaced with an equal-height **status strip**: one coloured cell per
+  task with the state name as a label. Colour + label carry the meaning; the
+  misleading magnitude axis is gone.
+- **#25** `compute_segments` rebuilt every task's full history each repaint
+  (O(total) per frame). Added `SegmentCache`, which keeps a per-task running span
+  and only appends new samples, falling back to a full rebuild for a task whose
+  history was trimmed by `max_history`. Output is identical to
+  `compute_segments` (verified incrementally in tests); the GUI now uses it.
+
+### Everything from the review is now addressed
+
+All eleven findings (#18–#28) are implemented. The deferred list is empty.
 
 ### What the reviewer said was good (kept)
 

@@ -39,6 +39,14 @@ def test_bar_chart_draws_one_bar_per_task(ax):
     assert ax.get_title() == "Current Task States"
 
 
+def test_bar_chart_is_equal_height_status_strip(ax):
+    # State is categorical: every cell is the same height (no magnitude axis).
+    store = _store([(0.0, "Task:A,State:0"), (1.0, "Task:B,State:3")])
+    bars = draw_bar_chart(ax, store)
+    assert {round(b.get_height(), 6) for b in bars} == {1.0}
+    assert list(ax.get_yticks()) == []
+
+
 def test_bar_chart_labels_use_latest_state(ax):
     store = _store([(0.0, "Task:A,State:0"), (1.0, "Task:A,State:2")])
     draw_bar_chart(ax, store)

@@ -8,7 +8,7 @@ from freertos_visualizer.security import (
 )
 from freertos_visualizer.simulator import DEFAULT_TASKS, TaskSimulator
 from freertos_visualizer.stats import compute_summary, format_summary
-from freertos_visualizer.timeline import STATE_COLORS, compute_segments
+from freertos_visualizer.timeline import STATE_COLORS, SegmentCache, compute_segments
 from freertos_visualizer.visualize import (
     STATE_DICT,
     SerialConnection,
@@ -26,6 +26,7 @@ __all__ = [
     "compute_summary",
     "format_summary",
     "compute_segments",
+    "SegmentCache",
     "STATE_COLORS",
     "parse_serial_line",
     "sanitize_csv_field",

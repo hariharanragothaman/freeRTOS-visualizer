@@ -1,5 +1,6 @@
 from freertos_visualizer.timeline import (
     STATE_COLORS,
+    SegmentCache,
     _segments_for,
     compute_segments,
     state_color,
@@ -80,3 +81,54 @@ def test_spans_have_nonnegative_width():
     ])
     for start, end, _state in compute_segments(store)["A"]:
         assert end >= start
+
+
+# ---------------------------------------------------------------------------
+# SegmentCache: must match compute_segments while only appending new samples.
+# ---------------------------------------------------------------------------
+
+
+def test_cache_matches_compute_segments_incrementally():
+    store = TaskStateStore()
+    cache = SegmentCache()
+    feed = [
+        (0.0, "Task:A,State:0"),
+        (1.0, "Task:B,State:1"),
+        (2.0, "Task:A,State:0"),
+        (3.0, "Task:A,State:2"),
+        (4.0, "Task:B,State:1"),
+        (5.0, "Task:A,State:2"),
+        (6.0, "Task:B,State:3"),
+    ]
+    for ts, line in feed:
+        store.ingest_line(line, timestamp=ts)
+        # Cache output must equal a full recompute at every step.
+        assert cache.update(store) == compute_segments(store)
+
+
+def test_cache_handles_empty_then_growing_task():
+    store = TaskStateStore()
+    cache = SegmentCache()
+    assert cache.update(store) == {}
+    store.ingest_line("Task:A,State:0", timestamp=0.0)
+    assert cache.update(store) == compute_segments(store)
+
+
+def test_cache_rebuilds_after_history_trim():
+    store = TaskStateStore(max_history=3)
+    cache = SegmentCache()
+    for i in range(6):
+        store.ingest_line(f"Task:A,State:{i % 4}", timestamp=float(i))
+        # Even as the front is evicted, cache must stay correct.
+        assert cache.update(store) == compute_segments(store)
+
+
+def test_cache_drops_removed_tasks():
+    store = TaskStateStore()
+    cache = SegmentCache()
+    store.ingest_line("Task:A,State:0", timestamp=0.0)
+    cache.update(store)
+    # Simulate the task disappearing from the store.
+    store.task_states.pop("A")
+    store.task_timestamps.pop("A")
+    assert cache.update(store) == {}
