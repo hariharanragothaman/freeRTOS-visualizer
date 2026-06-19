@@ -1,5 +1,10 @@
 """freeRTOS-visualizer: real-time visualization of FreeRTOS task states."""
 
+from freertos_visualizer.security import (
+    sanitize_csv_field,
+    sanitize_display_text,
+    strip_ansi,
+)
 from freertos_visualizer.simulator import DEFAULT_TASKS, TaskSimulator
 from freertos_visualizer.stats import compute_summary, format_summary
 from freertos_visualizer.timeline import STATE_COLORS, compute_segments
@@ -21,4 +26,7 @@ __all__ = [
     "compute_segments",
     "STATE_COLORS",
     "parse_serial_line",
+    "sanitize_csv_field",
+    "sanitize_display_text",
+    "strip_ansi",
 ]

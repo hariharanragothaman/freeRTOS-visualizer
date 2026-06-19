@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test cov cov-html demo stats timeline gifs clean
+.PHONY: help install install-dev test cov cov-html demo stats timeline gifs security-demo security clean
 
 PY ?= python3
 VENV ?= .venv
@@ -14,8 +14,10 @@ help:
 	@echo "  demo         Run the headless serial-simulator demo"
 	@echo "  stats        Print task statistics from a simulated run"
 	@echo "  timeline     Render a Gantt-style timeline PNG from a simulated run"
-	@echo "  gifs         Record animated bar-chart + timeline demo GIFs into docs/"
-	@echo "  clean        Remove caches and coverage artifacts"
+	@echo "  gifs          Record animated bar-chart + timeline demo GIFs into docs/"
+	@echo "  security-demo Show untrusted-input hardening (injection + DoS) in action"
+	@echo "  security      Run Bandit (SAST) and pip-audit (dependency CVEs)"
+	@echo "  clean         Remove caches and coverage artifacts"
 
 $(BIN)/python:
 	$(PY) -m venv $(VENV)
@@ -48,6 +50,14 @@ timeline:
 
 gifs:
 	$(BIN)/python examples/record_demo.py --mode both --out-dir docs
+
+security-demo:
+	$(BIN)/python examples/security_demo.py
+
+security:
+	$(BIN)/python -m pip install --quiet bandit pip-audit
+	$(BIN)/python -m bandit -r freertos_visualizer
+	$(BIN)/python -m pip_audit -r requirements.txt || true
 
 clean:
 	rm -rf .pytest_cache htmlcov .coverage coverage.xml

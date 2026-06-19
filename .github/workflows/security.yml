@@ -1,0 +1,44 @@
+name: Security
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 6 * * 1'  # weekly, Mondays 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  bandit:
+    name: Bandit (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Bandit
+        run: python -m pip install --upgrade pip bandit
+      - name: Run Bandit on the package
+        run: bandit -r freertos_visualizer
+
+  pip-audit:
+    name: pip-audit (dependency CVEs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip pip-audit
+      - name: Audit dependencies (advisory)
+        # Non-blocking: surfaces advisories without failing the build on
+        # transitive issues outside our control. Review the output regularly.
+        continue-on-error: true
+        run: pip-audit -r requirements.txt

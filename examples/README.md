@@ -9,6 +9,7 @@ QEMU — they use the built-in serial simulator.
 | `print_stats.py` | Headless: simulates a run and prints per-task statistics. |
 | `plot_timeline.py` | Headless: simulates a run and renders a Gantt-style timeline PNG (needs matplotlib). |
 | `record_demo.py` | Headless: records animated bar-chart and timeline demo GIFs (needs matplotlib + pillow). |
+| `security_demo.py` | Headless: shows untrusted-input hardening (CSV/ANSI injection, DoS caps) in action. |
 
 ## Running
 

@@ -4,6 +4,8 @@ import re
 import sys
 import time
 
+from freertos_visualizer import security
+
 try:
     import serial
 except ImportError:  # pragma: no cover - exercised through runtime checks
@@ -38,12 +40,17 @@ _BACKOFF_MAX_S = 30.0
 _BACKOFF_FACTOR = 2.0
 
 
-def parse_serial_line(line):
+def parse_serial_line(line, max_name_length=security.DEFAULT_MAX_NAME_LENGTH):
     match = re.search(r"Task:(\S+),State:(\d+)", line)
     if not match:
         return None
 
-    task_name = match.group(1)
+    # The task name comes from an untrusted device: strip control/ANSI bytes
+    # and bound its length before it propagates to storage, CSV, or the console.
+    task_name = security.sanitize_display_text(match.group(1), max_length=max_name_length)
+    if not task_name:
+        return None
+
     task_state = STATE_DICT.get(match.group(2), 'Unknown')
     return task_name, task_state
 
@@ -57,10 +64,11 @@ class TaskStateStore:
     returning a float) to make timestamps deterministic in tests.
     """
 
-    def __init__(self, max_history=10_000, clock=time.time):
+    def __init__(self, max_history=10_000, clock=time.time, max_tasks=security.DEFAULT_MAX_TASKS):
         self.task_states = {}
         self.task_timestamps = {}
         self.max_history = max_history
+        self.max_tasks = max_tasks
         self._clock = clock
 
     def ingest_line(self, line, timestamp=None):
@@ -69,6 +77,17 @@ class TaskStateStore:
             return None
 
         task_name, task_state = parsed
+
+        # Resource cap: a hostile device could emit unbounded distinct task
+        # names to exhaust memory. Once the cap is hit, ignore unseen tasks
+        # (already-tracked tasks continue to update).
+        if (
+            self.max_tasks is not None
+            and task_name not in self.task_states
+            and len(self.task_states) >= self.max_tasks
+        ):
+            return None
+
         if timestamp is None:
             timestamp = self._clock()
 
@@ -96,23 +115,33 @@ class TaskStateStore:
         return compute_summary(self)
 
     def export_csv(self, output_path):
+        # Task names originate from an untrusted device. Neutralize spreadsheet
+        # formula injection before writing them to a CSV that a human may open.
         with open(output_path, "w", newline="", encoding="utf-8") as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(["task_name", "sample_index", "timestamp", "state"])
             for task_name, states in self.task_states.items():
                 stamps = self.task_timestamps.get(task_name, [])
+                safe_name = security.sanitize_csv_field(task_name)
                 for sample_index, state in enumerate(states):
                     timestamp = stamps[sample_index] if sample_index < len(stamps) else ""
-                    writer.writerow([task_name, sample_index, timestamp, state])
+                    writer.writerow([
+                        safe_name,
+                        sample_index,
+                        timestamp,
+                        security.sanitize_csv_field(state),
+                    ])
 
 
 class SerialConnection:
     """Wrapper around pyserial that reconnects with exponential backoff."""
 
-    def __init__(self, url, baudrate=115200, timeout=1.0, _clock=time):
+    def __init__(self, url, baudrate=115200, timeout=1.0, _clock=time,
+                 max_line_length=security.DEFAULT_MAX_LINE_LENGTH):
         self.url = url
         self.baudrate = baudrate
         self.timeout = timeout
+        self.max_line_length = max_line_length
         self._clock = _clock
         self._port = None
         self._backoff = _BACKOFF_INITIAL_S
@@ -149,6 +178,9 @@ class SerialConnection:
 
         try:
             raw = self._port.readline()
+            # Bound the line so a device that never sends a newline cannot make
+            # a single read grow without limit.
+            raw = security.clamp_line(raw, self.max_line_length)
             return raw.decode("utf-8", errors="replace").strip()
         except Exception:
             self.connected = False
@@ -157,9 +189,10 @@ class SerialConnection:
 
     def close(self):
         if self._port is not None:
+            # Best-effort close; there is nothing to recover if it fails.
             try:
                 self._port.close()
-            except Exception:
+            except Exception:  # nosec B110
                 pass
             self._port = None
         self.connected = False
