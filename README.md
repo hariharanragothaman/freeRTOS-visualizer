@@ -7,6 +7,11 @@
 </p>
 
 <p align="center">
+  <i>Zero on-target instrumentation — no J-Link, no RTT, no recorder library.<br/>
+  If your firmware can <code>printf</code> a line over a UART, you can see your tasks.</i>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/python-3.9+-blue?logo=python&logoColor=white" alt="python 3.9+" />
   <img src="https://img.shields.io/badge/PyQt5-GUI-green?logo=qt&logoColor=white" alt="PyQt5 GUI" />
   <img src="https://img.shields.io/badge/matplotlib-charts-orange?logo=plotly&logoColor=white" alt="matplotlib charts" />
@@ -21,8 +26,42 @@
 </p>
 
 <p align="center">
-  <a href="#demo">Demo</a> · <a href="#features">Features</a> · <a href="#how-it-works">How It Works</a> · <a href="#quick-start">Quick Start</a> · <a href="#cli-options">CLI Options</a> · <a href="#serial-protocol">Serial Protocol</a> · <a href="#security">Security</a> · <a href="#development">Development</a> · <a href="#project-layout">Project Layout</a> · <a href="#roadmap">Roadmap</a>
+  <a href="#why-this-tool">Why This Tool</a> · <a href="#demo">Demo</a> · <a href="#features">Features</a> · <a href="#how-it-works">How It Works</a> · <a href="#quick-start">Quick Start</a> · <a href="#cli-options">CLI Options</a> · <a href="#serial-protocol">Serial Protocol</a> · <a href="#security">Security</a> · <a href="#development">Development</a> · <a href="#project-layout">Project Layout</a> · <a href="#roadmap">Roadmap</a>
 </p>
+
+---
+
+## Why this tool?
+
+The first question in any RTOS community is fair: **how is this different from
+[SystemView](https://www.segger.com/products/development-tools/systemview/),
+which is free and already does microsecond-resolution context-switch tracing?**
+
+It is **less powerful on purpose, in exchange for radically lower friction.**
+
+The gap it fills is **zero on-target instrumentation infrastructure**. No
+J-Link, no RTT, no binary recorder library, no DWT cycle counter, no vendor IDE.
+If your firmware can `printf` a line over a UART, you can visualize its tasks —
+and the host is pure Python (`pip install`, runs on macOS/Linux/Windows). That
+makes it the right tool for the **teaching / hobbyist / "I have a cheap board and
+a serial cable and don't own a J-Link"** segment, where a tracer's *setup cost*
+is the real barrier.
+
+| | **freeRTOS-visualizer** | **SystemView / Tracealyzer** |
+|---|---|---|
+| On-target setup | one UART writer ([`trace_shim.c`](firmware/trace_shim.c), `printf`-grade) | recorder library + RTT/streaming port |
+| Probe / hardware | **any board + a serial cable** | J-Link / debug probe (for RTT) |
+| Host side | **pure Python** (`pip install`) | vendor desktop application |
+| Resolution | **snapshot-rate** — periodic state samples | **event-rate** — every context switch / ISR / mutex / queue op |
+| What you see | per-task state over time (Running/Ready/Blocked/Suspended/…) | full event timeline, precise timing, API instrumentation |
+| License | MIT, free | free eval / commercial (Tracealyzer) |
+| Best for | teaching, hobby, board bring-up, no-probe setups | production timing analysis, deep debugging |
+
+**This is not a Tracealyzer competitor and doesn't try to be.** It trades the
+event-level depth (and the J-Link/RTT toolchain that depth requires) for a
+near-zero-setup, dependency-light path to *seeing your tasks*. If you need
+microsecond context-switch forensics, use SystemView. If you want a task-state
+view on a $5 board over the serial cable you already have, that's this.
 
 ---
 
@@ -49,6 +88,7 @@ python examples/record_demo.py --mode both --out-dir docs
 
 ## Features
 
+- **Zero On-Target Instrumentation** — no J-Link, RTT, recorder library, or DWT counter; a `printf`-grade UART line is the entire device-side requirement (see [Why this tool?](#why-this-tool))
 - **Real-Time Visualization** — monitor task states (Running, Ready, Blocked, Suspended) as they change
 - **Dynamic Bar Charts** — each task's current state rendered as a live-updating bar chart
 - **CSV Data Export** — export the full task-state history to a CSV file on exit via `--export-csv`
