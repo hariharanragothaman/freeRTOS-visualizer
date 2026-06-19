@@ -13,6 +13,19 @@ Task:<name>,State:<code>,Tick:<n>
 - **Tick** is `xTaskGetTickCount()`, so the host keys the timeline and
   time-in-state stats off the *device* clock, not host read time.
 
+The shim also announces the clock so the host can turn ticks into seconds and
+handle counter wraparound (emitted once and re-announced periodically by
+`trace_emit_meta()`):
+
+```
+TickRate:<configTICK_RATE_HZ>    # e.g. TickRate:1000
+TickBits:<32 or 16>              # 16 when configUSE_16_BIT_TICKS == 1
+```
+
+Without `TickRate` the host honestly labels the timeline `Device ticks` instead
+of seconds; with it, the axis reads real seconds. `TickBits` lets the host unwrap
+wraparound (16-bit ticks wrap every ~65.5 s at 1 kHz).
+
 ## Files
 
 | File | Purpose |

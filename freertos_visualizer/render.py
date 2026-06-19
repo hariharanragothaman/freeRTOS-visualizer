@@ -68,15 +68,23 @@ def draw_timeline(ax, store, cache=None, row_height=9, row_step=10):
         ax.text(0.5, 0.5, _WAITING_TEXT, ha="center", va="center")
         return
 
+    # Stored timestamps are device ticks or host seconds; scale to display units
+    # (seconds when the tick rate is known, otherwise raw ticks) and label the
+    # axis to match — never claim seconds for a raw tick count.
+    scale = getattr(store, "time_scale", 1.0)
+
     for idx, task in enumerate(tasks):
         spans = segments[task]
-        xranges = [(start, max(end - start, 0.0)) for (start, end, _s) in spans]
+        xranges = [
+            (start * scale, max((end - start) * scale, 0.0))
+            for (start, end, _s) in spans
+        ]
         colors = [state_color(state) for (_a, _b, state) in spans]
         ax.broken_barh(xranges, (idx * row_step, row_height), facecolors=colors)
 
     ax.set_yticks([idx * row_step + row_height / 2 for idx in range(len(tasks))])
     ax.set_yticklabels(tasks)
-    ax.set_xlabel("Time (s)")
+    ax.set_xlabel(getattr(store, "time_axis_label", "Time (s)"))
     ax.set_title("Task State Timeline")
     ax.legend(
         handles=[Patch(color=color, label=state) for state, color in STATE_COLORS.items()],

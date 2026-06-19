@@ -28,7 +28,11 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from freertos_visualizer.visualize import STATE_DICT, parse_serial_line  # noqa: E402
+from freertos_visualizer.visualize import (  # noqa: E402
+    STATE_DICT,
+    parse_meta_line,
+    parse_serial_line,
+)
 
 
 def _drain(stream, sink: list[str], stop: threading.Event) -> None:
@@ -93,9 +97,14 @@ def main() -> int:
 
     parsed = []
     bad = 0
+    meta = {}
     for raw in raw_lines:
         line = raw.strip()
         if not line:
+            continue
+        m = parse_meta_line(line)
+        if m is not None:
+            meta.update(m)
             continue
         result = parse_serial_line(line)
         if result is None:
@@ -114,6 +123,12 @@ def main() -> int:
     print(f"States  : {', '.join(states) if states else '<none>'}")
     if ticks:
         print(f"Tick    : {min(ticks)} -> {max(ticks)} (device clock)")
+    rate = meta.get("tick_rate_hz")
+    bits = meta.get("tick_bits")
+    print(f"Meta    : TickRate={rate} Hz, TickBits={bits}")
+    if rate:
+        print(f"Seconds : {min(ticks) / rate:.3f} -> {max(ticks) / rate:.3f} s "
+              f"(host converts ticks via TickRate)")
 
     ok = True
     if len(parsed) == 0:
@@ -128,6 +143,10 @@ def main() -> int:
         ok = False
     if bad > 0:
         print(f"FAIL: {bad} lines did not match the host parser", file=sys.stderr)
+        ok = False
+    if not meta.get("tick_rate_hz"):
+        print("FAIL: device never announced TickRate (timeline can't show seconds)",
+              file=sys.stderr)
         ok = False
 
     print("\nPASS: trace_shim.c emits the protocol and the host parser accepts it."

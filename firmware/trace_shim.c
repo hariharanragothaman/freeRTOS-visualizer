@@ -36,6 +36,20 @@
 #define TRACE_PERIOD_MS 50
 #endif
 
+/* Re-announce the tick metadata every N snapshots so a host that connects late
+ * still learns the device clock (it is cheap: two short lines). */
+#ifndef TRACE_META_EVERY
+#define TRACE_META_EVERY 40
+#endif
+
+/* Tick counter width, so the host can unwrap wraparound. FreeRTOS uses 16-bit
+ * ticks when configUSE_16_BIT_TICKS is set, otherwise 32-bit. */
+#if defined(configUSE_16_BIT_TICKS) && (configUSE_16_BIT_TICKS == 1)
+#define TRACE_TICK_BITS 16
+#else
+#define TRACE_TICK_BITS 32
+#endif
+
 /*
  * Provide this in your BSP. Writes one already-newline-terminated line to the
  * serial transport the host reads. Must be callable from a task context.
@@ -72,6 +86,20 @@ static void trace_copy_name(char *dst, size_t dst_size, const char *src)
     dst[j] = '\0';
 }
 
+/* Announce the device clock so the host can interpret ticks: TickRate gives the
+ * ticks/second needed to convert to seconds, TickBits the counter width for
+ * wraparound unwrapping. The host labels the timeline "Device ticks" until it
+ * sees TickRate, so emitting this is what makes the axis read real seconds. */
+void trace_emit_meta(void)
+{
+    char line[32];
+    snprintf(line, sizeof line, "TickRate:%lu\r\n",
+             (unsigned long) configTICK_RATE_HZ);
+    trace_serial_write(line);
+    snprintf(line, sizeof line, "TickBits:%d\r\n", TRACE_TICK_BITS);
+    trace_serial_write(line);
+}
+
 /* Emit a snapshot of every task's current state. */
 void trace_emit_snapshot(void)
 {
@@ -99,10 +127,17 @@ static void vTraceTask(void *arg)
     (void) arg;
     const TickType_t period = pdMS_TO_TICKS(TRACE_PERIOD_MS);
     TickType_t last = xTaskGetTickCount();
+    unsigned snapshot = 0;
 
     for (;;)
     {
+        /* Re-announce the clock metadata periodically (and on the first pass). */
+        if ((snapshot % TRACE_META_EVERY) == 0)
+        {
+            trace_emit_meta();
+        }
         trace_emit_snapshot();
+        snapshot++;
         vTaskDelayUntil(&last, period);
     }
 }

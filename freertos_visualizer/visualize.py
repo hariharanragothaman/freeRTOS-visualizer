@@ -43,6 +43,31 @@ _BACKOFF_FACTOR = 2.0
 # following fields). An optional device tick makes timing device-relative.
 _LINE_RE = re.compile(r"Task:([^,\s]+),State:(\d+)(?:,Tick:(\d+))?")
 
+# Out-of-band metadata the device announces so the host can interpret ticks:
+#   TickRate:<hz>   -- ticks per second, lets the host convert ticks -> seconds
+#   TickBits:<n>    -- tick counter width, so wraparound can be unwrapped
+# Anchored at start so a normal "Task:...,Tick:n" line can never match.
+_META_RE = re.compile(r"^Tick(Rate|Bits):(\d+)\s*$")
+
+
+def parse_meta_line(line):
+    """Parse a protocol metadata line (``TickRate:``/``TickBits:``).
+
+    Returns a dict like ``{"tick_rate_hz": 1000}`` or ``{"tick_bits": 32}``,
+    or ``None`` if the line is not metadata.
+    """
+    match = _META_RE.match(line)
+    if not match:
+        return None
+    field, value = match.group(1), int(match.group(2))
+    if field == "Rate":
+        if value <= 0:
+            return None
+        return {"tick_rate_hz": value}
+    if value <= 0:
+        return None
+    return {"tick_bits": value}
+
 
 def parse_serial_line(line, max_name_length=security.DEFAULT_MAX_NAME_LENGTH):
     """Parse one protocol line.
@@ -75,19 +100,97 @@ class TaskStateStore:
     returning a float) to make timestamps deterministic in tests.
     """
 
-    def __init__(self, max_history=10_000, clock=time.time, max_tasks=security.DEFAULT_MAX_TASKS):
+    def __init__(self, max_history=10_000, clock=time.time, max_tasks=security.DEFAULT_MAX_TASKS,
+                 tick_rate_hz=None, tick_bits=32):
         self.task_states = {}
         self.task_timestamps = {}
         self.max_history = max_history
         self.max_tasks = max_tasks
         self._clock = clock
+        # Tick semantics. ``tick_rate_hz`` (ticks/second) lets the host convert
+        # device ticks into seconds; ``tick_bits`` is the counter width used to
+        # unwrap wraparound. Both can be set up front or learned at runtime from
+        # TickRate:/TickBits: protocol metadata.
+        self.tick_rate_hz = tick_rate_hz
+        self.tick_bits = tick_bits
+        self._tick_modulus = 1 << tick_bits
+        # Clock domain is locked to the first sample so device ticks and host
+        # wall-clock can never interleave in one task's history (see #46).
+        self._domain = None
+        self._last_raw_tick = None
+        self._tick_offset = 0
+
+    def _apply_meta(self, meta):
+        if "tick_rate_hz" in meta:
+            self.tick_rate_hz = meta["tick_rate_hz"]
+        if "tick_bits" in meta:
+            self.tick_bits = meta["tick_bits"]
+            self._tick_modulus = 1 << self.tick_bits
+
+    def _unwrap_tick(self, tick):
+        """Map a wrapping device tick to a monotonic 64-bit value.
+
+        Device ticks are non-decreasing between snapshots, so any strict
+        decrease is a counter wrap; accumulate one modulus per wrap. Honors the
+        advertised ``tick_bits`` so 16- and 32-bit counters both unwrap.
+        """
+        if self._last_raw_tick is not None and tick < self._last_raw_tick:
+            self._tick_offset += self._tick_modulus
+        self._last_raw_tick = tick
+        return tick + self._tick_offset
+
+    def _resolve_timestamp(self, tick):
+        """Return the timestamp for a sample, or ``None`` to reject a domain mix."""
+        domain = "device" if tick is not None else "host"
+        if self._domain is None:
+            self._domain = domain
+        elif domain != self._domain:
+            # Refuse to interleave device ticks (~1e3) and host epoch seconds
+            # (~1e9) in one history — that corruption is invisible until it isn't.
+            return None
+        if domain == "device":
+            return float(self._unwrap_tick(tick))
+        return self._clock()
+
+    @property
+    def clock_domain(self):
+        """``"device"``, ``"host"``, or ``None`` before the first sample."""
+        return self._domain
+
+    @property
+    def time_scale(self):
+        """Multiplier to convert stored timestamps to seconds (1.0 if already)."""
+        if self._domain == "device" and self.tick_rate_hz:
+            return 1.0 / self.tick_rate_hz
+        return 1.0
+
+    @property
+    def time_axis_label(self):
+        """Honest x-axis label: seconds only when the unit really is seconds."""
+        if self._domain == "device" and not self.tick_rate_hz:
+            return "Device ticks"
+        return "Time (s)"
 
     def ingest_line(self, line, timestamp=None):
+        meta = parse_meta_line(line)
+        if meta is not None:
+            self._apply_meta(meta)
+            return None
+
         parsed = parse_serial_line(line)
         if not parsed:
             return None
 
         task_name, task_state, tick = parsed
+
+        # Prefer the device tick (the transition's real time on the target) over
+        # the host read time, which is distorted by buffering and scheduling.
+        # Locks the clock domain and unwraps tick wraparound; rejects a line
+        # whose domain doesn't match what was locked in.
+        if timestamp is None:
+            timestamp = self._resolve_timestamp(tick)
+            if timestamp is None:
+                return None
 
         # Resource cap: a hostile device could emit unbounded distinct task
         # names to exhaust memory. Once the cap is hit, ignore unseen tasks
@@ -98,11 +201,6 @@ class TaskStateStore:
             and len(self.task_states) >= self.max_tasks
         ):
             return None
-
-        # Prefer the device tick (the transition's real time on the target) over
-        # the host read time, which is distorted by buffering and scheduling.
-        if timestamp is None:
-            timestamp = float(tick) if tick is not None else self._clock()
 
         history = self.task_states.setdefault(task_name, [])
         stamps = self.task_timestamps.setdefault(task_name, [])
@@ -337,8 +435,13 @@ def main():
         from freertos_visualizer.simulator import TaskSimulator
 
         # Paced + tick-emitting so the demo exercises the same threaded reader
-        # pipeline (and device-tick timing) as real hardware.
-        conn = TaskSimulator(seed=args.seed, emit_tick=True, rate_hz=args.demo_rate)
+        # pipeline (and device-tick timing) as real hardware. The simulated tick
+        # advances one step per line, so announcing TickRate == lines/second
+        # makes the timeline axis read in real seconds.
+        conn = TaskSimulator(
+            seed=args.seed, emit_tick=True, rate_hz=args.demo_rate,
+            tick_rate_hz=int(args.demo_rate),
+        )
         print("Running in demo mode with the built-in serial simulator.")
     else:
         if serial is None:
