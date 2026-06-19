@@ -21,10 +21,12 @@ jobs:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
     - name: Install ARM toolchain + QEMU
+      # Ubuntu splits the C library out of gcc-arm-none-eabi; libnewlib provides
+      # the newlib/newlib-nano specs (nano.specs, nosys.specs) the build needs.
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
-          gcc-arm-none-eabi qemu-system-arm
+          gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
 
     - name: Set up Python
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
