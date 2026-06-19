@@ -12,23 +12,38 @@ from freertos_visualizer.visualize import (
 
 
 def test_parse_valid_running():
-    assert parse_serial_line("Task:Task1,State:0") == ("Task1", "Running")
+    assert parse_serial_line("Task:Task1,State:0") == ("Task1", "Running", None)
 
 
 def test_parse_valid_ready():
-    assert parse_serial_line("Task:LED,State:1") == ("LED", "Ready")
+    assert parse_serial_line("Task:LED,State:1") == ("LED", "Ready", None)
 
 
 def test_parse_valid_blocked():
-    assert parse_serial_line("Task:Sensor,State:2") == ("Sensor", "Blocked")
+    assert parse_serial_line("Task:Sensor,State:2") == ("Sensor", "Blocked", None)
 
 
 def test_parse_valid_suspended():
-    assert parse_serial_line("Task:Motor,State:3") == ("Motor", "Suspended")
+    assert parse_serial_line("Task:Motor,State:3") == ("Motor", "Suspended", None)
+
+
+def test_parse_deleted_and_invalid_states():
+    assert parse_serial_line("Task:T,State:4") == ("T", "Deleted", None)
+    assert parse_serial_line("Task:T,State:5") == ("T", "Invalid", None)
 
 
 def test_parse_unknown_state_code():
-    assert parse_serial_line("Task:Task1,State:99") == ("Task1", "Unknown")
+    assert parse_serial_line("Task:Task1,State:99") == ("Task1", "Unknown", None)
+
+
+def test_parse_with_device_tick():
+    assert parse_serial_line("Task:LED,State:0,Tick:42") == ("LED", "Running", 42)
+
+
+def test_parse_name_is_comma_free():
+    # The name group must not swallow commas into the following fields.
+    assert parse_serial_line("Task:foo,bar,State:1") is None
+    assert parse_serial_line("Task:A,State:2")[0] == "A"
 
 
 def test_parse_invalid_line_returns_none():
@@ -40,11 +55,11 @@ def test_parse_empty_string():
 
 
 def test_parse_partial_match():
-    assert parse_serial_line("Task:,State:0") is None  # empty task name (\S+ won't match)
+    assert parse_serial_line("Task:,State:0") is None  # empty task name
 
 
 def test_parse_embedded_in_noise():
-    assert parse_serial_line("garbage Task:X,State:1 more") == ("X", "Ready")
+    assert parse_serial_line("garbage Task:X,State:1 more") == ("X", "Ready", None)
 
 
 # ---------------------------------------------------------------------------
@@ -132,12 +147,12 @@ class FakePort:
 
 
 class FakeClock:
-    """Deterministic clock for testing backoff timing."""
+    """Deterministic, callable clock for testing backoff timing."""
 
     def __init__(self, start=0.0):
         self._now = start
 
-    def time(self):
+    def __call__(self):
         return self._now
 
     def advance(self, seconds):
@@ -147,7 +162,7 @@ class FakeClock:
 def _make_conn(fake_port, clock=None):
     """Build a SerialConnection pre-wired to a FakePort, bypassing real serial."""
     clock = clock or FakeClock()
-    conn = SerialConnection(url="fake://", _clock=clock)
+    conn = SerialConnection(url="fake://", clock=clock)
     conn._port = fake_port
     conn.connected = True
     return conn, clock
@@ -175,7 +190,7 @@ def test_readline_marks_disconnected_on_error():
 
 def test_backoff_prevents_immediate_reconnect():
     clock = FakeClock(start=100.0)
-    conn = SerialConnection(url="fake://", _clock=clock)
+    conn = SerialConnection(url="fake://", clock=clock)
     conn.connected = False
     conn._last_attempt = 100.0
 
@@ -185,14 +200,14 @@ def test_backoff_prevents_immediate_reconnect():
 
 def test_backoff_allows_reconnect_after_delay():
     clock = FakeClock(start=100.0)
-    conn = SerialConnection(url="fake://", _clock=clock)
+    conn = SerialConnection(url="fake://", clock=clock)
     conn.connected = False
     conn._last_attempt = 98.0  # 2 seconds ago, > initial 1s backoff
 
-    # _open will raise because url is fake, but it should *try*
+    # connect() will raise because url is fake, but it should *try*
     result = conn.readline()
     assert result == ""
-    # backoff should have doubled since _open failed
+    # backoff should have doubled since connect failed
     assert conn._backoff > 1.0
 
 

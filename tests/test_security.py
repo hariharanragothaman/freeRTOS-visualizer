@@ -61,7 +61,7 @@ def test_sanitize_display_text_truncates():
 
 
 def test_parse_strips_ansi_from_task_name():
-    name, state = parse_serial_line("Task:\x1b[31mEvil\x1b[0m,State:0")
+    name, state, _tick = parse_serial_line("Task:\x1b[31mEvil\x1b[0m,State:0")
     assert name == "Evil"
     assert state == "Running"
 
@@ -73,7 +73,7 @@ def test_parse_rejects_all_control_name():
 
 def test_parse_bounds_task_name_length():
     long_name = "T" * 500
-    name, _ = parse_serial_line(f"Task:{long_name},State:0", max_name_length=32)
+    name, _state, _tick = parse_serial_line(f"Task:{long_name},State:0", max_name_length=32)
     assert len(name) == 32
 
 

@@ -22,6 +22,20 @@ def test_explicit_timestamp_overrides_clock():
     assert store.task_timestamps["A"] == [42.0]
 
 
+def test_device_tick_used_as_timestamp():
+    # When the device supplies a tick, it should drive the timeline, not the
+    # host read clock.
+    store = TaskStateStore(clock=_seq_clock([999.0]))
+    store.ingest_line("Task:A,State:0,Tick:7")
+    assert store.task_timestamps["A"] == [7.0]
+
+
+def test_explicit_timestamp_overrides_device_tick():
+    store = TaskStateStore(clock=_seq_clock([999.0]))
+    store.ingest_line("Task:A,State:0,Tick:7", timestamp=3.0)
+    assert store.task_timestamps["A"] == [3.0]
+
+
 def test_history_pairs_timestamp_and_state():
     store = TaskStateStore(clock=_seq_clock([5.0, 6.0]))
     store.ingest_line("Task:A,State:0")

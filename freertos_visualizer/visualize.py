@@ -25,23 +25,33 @@ except ImportError:  # pragma: no cover - exercised through runtime checks
     FigureCanvas = object
     Figure = None
 
+# Codes mirror FreeRTOS eTaskState (task.h): eRunning..eInvalid.
 STATE_DICT = {
     '0': 'Running',
     '1': 'Ready',
     '2': 'Blocked',
     '3': 'Suspended',
+    '4': 'Deleted',
+    '5': 'Invalid',
 }
-
-# Keep the old name around for backward compatibility
-state_dict = STATE_DICT
 
 _BACKOFF_INITIAL_S = 1.0
 _BACKOFF_MAX_S = 30.0
 _BACKOFF_FACTOR = 2.0
 
+# Task name is comma-free (anchored to [^,\s]+ so it cannot swallow the
+# following fields). An optional device tick makes timing device-relative.
+_LINE_RE = re.compile(r"Task:([^,\s]+),State:(\d+)(?:,Tick:(\d+))?")
+
 
 def parse_serial_line(line, max_name_length=security.DEFAULT_MAX_NAME_LENGTH):
-    match = re.search(r"Task:(\S+),State:(\d+)", line)
+    """Parse one protocol line.
+
+    Returns ``(task_name, task_state, tick)`` or ``None``. ``tick`` is the
+    device-supplied tick as an ``int`` when the optional ``,Tick:<n>`` field is
+    present, otherwise ``None``.
+    """
+    match = _LINE_RE.search(line)
     if not match:
         return None
 
@@ -52,7 +62,8 @@ def parse_serial_line(line, max_name_length=security.DEFAULT_MAX_NAME_LENGTH):
         return None
 
     task_state = STATE_DICT.get(match.group(2), 'Unknown')
-    return task_name, task_state
+    tick = int(match.group(3)) if match.group(3) is not None else None
+    return task_name, task_state, tick
 
 
 class TaskStateStore:
@@ -76,7 +87,7 @@ class TaskStateStore:
         if not parsed:
             return None
 
-        task_name, task_state = parsed
+        task_name, task_state, tick = parsed
 
         # Resource cap: a hostile device could emit unbounded distinct task
         # names to exhaust memory. Once the cap is hit, ignore unseen tasks
@@ -88,8 +99,10 @@ class TaskStateStore:
         ):
             return None
 
+        # Prefer the device tick (the transition's real time on the target) over
+        # the host read time, which is distorted by buffering and scheduling.
         if timestamp is None:
-            timestamp = self._clock()
+            timestamp = float(tick) if tick is not None else self._clock()
 
         history = self.task_states.setdefault(task_name, [])
         stamps = self.task_timestamps.setdefault(task_name, [])
@@ -136,19 +149,21 @@ class TaskStateStore:
 class SerialConnection:
     """Wrapper around pyserial that reconnects with exponential backoff."""
 
-    def __init__(self, url, baudrate=115200, timeout=1.0, _clock=time,
+    def __init__(self, url, baudrate=115200, timeout=1.0, clock=time.time,
                  max_line_length=security.DEFAULT_MAX_LINE_LENGTH):
         self.url = url
         self.baudrate = baudrate
         self.timeout = timeout
         self.max_line_length = max_line_length
-        self._clock = _clock
+        # ``clock`` is a callable returning a float (same convention as
+        # TaskStateStore), injectable for deterministic tests.
+        self._clock = clock
         self._port = None
         self._backoff = _BACKOFF_INITIAL_S
         self._last_attempt = 0.0
         self.connected = False
 
-    def _open(self):
+    def connect(self):
         if serial is None:
             raise RuntimeError("pyserial is not installed")
         self._port = serial.serial_for_url(
@@ -157,21 +172,14 @@ class SerialConnection:
         self.connected = True
         self._backoff = _BACKOFF_INITIAL_S
 
-    def connect(self):
-        try:
-            self._open()
-        except Exception as exc:
-            self.connected = False
-            raise exc
-
     def readline(self):
         if not self.connected:
-            now = self._clock.time()
+            now = self._clock()
             if now - self._last_attempt < self._backoff:
                 return ""
             self._last_attempt = now
             try:
-                self._open()
+                self.connect()
             except Exception:
                 self._backoff = min(self._backoff * _BACKOFF_FACTOR, _BACKOFF_MAX_S)
                 return ""
@@ -184,7 +192,7 @@ class SerialConnection:
             return raw.decode("utf-8", errors="replace").strip()
         except Exception:
             self.connected = False
-            self._last_attempt = self._clock.time()
+            self._last_attempt = self._clock()
             return ""
 
     def close(self):
@@ -212,13 +220,19 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
         if QMainWindow is None:
             raise RuntimeError("PyQt5 is required to launch the visualizer UI.")
         super().__init__()
+        from freertos_visualizer.reader import SerialReader
+
         self.serial_conn = serial_conn
+        # A dedicated thread drains the port at line rate; the repaint timer only
+        # throttles rendering. Ingest rate and paint rate are decoupled.
+        self.reader = SerialReader(serial_conn)
         self.refresh_interval_ms = refresh_interval_ms
         self.export_csv_path = export_csv_path
         self.view = view
         self.store = TaskStateStore()
 
         self.initUI()
+        self.reader.start()
 
     def initUI(self):
         self.setWindowTitle("FreeRTOS Task State Visualization")
@@ -242,8 +256,9 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
         self.timer.start(self.refresh_interval_ms)
 
     def update_task_states(self):
-        line = self.serial_conn.readline()
-        if line:
+        # Drain everything the reader has buffered since the last repaint, so a
+        # fast device is fully captured even though we paint at refresh_interval.
+        for line in self.reader.drain():
             self.store.ingest_line(line)
         if self.view == "timeline":
             self.plot_timeline()
@@ -263,9 +278,9 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
         self.canvas.draw()
 
     def closeEvent(self, event):
+        self.reader.stop()
         if self.export_csv_path:
             self.store.export_csv(self.export_csv_path)
-        self.serial_conn.close()
         super().closeEvent(event)
 
 
@@ -282,6 +297,8 @@ def main():
         help="Run against the built-in serial simulator instead of a real port (no hardware needed).",
     )
     parser.add_argument("--seed", type=int, default=0, help="Seed for the --demo simulator.")
+    parser.add_argument("--demo-rate", type=float, default=200.0,
+                        help="Lines/second emitted by the --demo simulator.")
     parser.add_argument(
         "--view",
         choices=("bar", "timeline"),
@@ -297,8 +314,9 @@ def main():
     if args.demo:
         from freertos_visualizer.simulator import TaskSimulator
 
-        conn = TaskSimulator(seed=args.seed)
-        conn.connect()
+        # Paced + tick-emitting so the demo exercises the same threaded reader
+        # pipeline (and device-tick timing) as real hardware.
+        conn = TaskSimulator(seed=args.seed, emit_tick=True, rate_hz=args.demo_rate)
         print("Running in demo mode with the built-in serial simulator.")
     else:
         if serial is None:
@@ -309,11 +327,7 @@ def main():
             baudrate=args.baudrate,
             timeout=args.timeout,
         )
-        try:
-            conn.connect()
-        except Exception as e:
-            print(f"Failed to connect to serial port: {e}")
-            print("The visualizer will keep retrying in the background.")
+        # The reader thread connects lazily and reconnects with backoff.
 
     app = QApplication(sys.argv)
     vis = TaskVisualization(

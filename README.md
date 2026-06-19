@@ -61,16 +61,21 @@ python examples/record_demo.py --mode both --out-dir docs
 ## How It Works
 
 ```
-┌──────────────┐   serial/TCP   ┌───────────────────┐   matplotlib   ┌────────────┐
-│  FreeRTOS    │ ─────────────▶ │  SerialConnection │ ────────────▶ │  PyQt5 GUI │
-│  (QEMU/HW)  │   Task:X,      │  + TaskStateStore │               │  Bar Chart │
-└──────────────┘   State:N      └───────────────────┘               └────────────┘
+┌────────────┐  serial/TCP  ┌──────────────────┐  queue  ┌─────────────────┐  matplotlib  ┌──────────┐
+│  FreeRTOS  │ ───────────▶ │  SerialReader    │ ──────▶ │  TaskStateStore │ ───────────▶ │ PyQt5 GUI│
+│ (QEMU/HW)  │  Task:X,     │  (reader thread) │  drain  │                 │   throttled  │  charts  │
+└────────────┘  State:N,    └──────────────────┘         └─────────────────┘   by --refresh└──────────┘
+                Tick:M
 ```
 
-1. FreeRTOS prints `Task:<name>,State:<code>` lines over a serial port
-2. `SerialConnection` reads and decodes lines, reconnecting automatically on failure
-3. `TaskStateStore` parses and accumulates task-state history
-4. The PyQt5 GUI renders a live bar chart, refreshing on a configurable interval
+1. FreeRTOS prints `Task:<name>,State:<code>[,Tick:<n>]` lines over a serial port
+2. A dedicated **reader thread** (`SerialReader`) drains the port at line rate
+   into a queue, reconnecting automatically on failure — ingest is **not** tied
+   to the repaint rate, so fast devices are not dropped
+3. The GUI drains everything queued each repaint into `TaskStateStore`; only the
+   *render* is throttled by `--refresh-ms`
+4. When the device supplies a `Tick`, timing is keyed off the device clock rather
+   than host read time
 
 ---
 
@@ -143,10 +148,11 @@ rtos-visualize --export-csv task_history.csv
 | `--serial-url` | `socket://localhost:12345` | Serial endpoint URL |
 | `--baudrate` | `115200` | Serial baud rate |
 | `--timeout` | `1.0` | Serial read timeout (seconds) |
-| `--refresh-ms` | `1000` | GUI refresh interval (milliseconds) |
+| `--refresh-ms` | `1000` | GUI **render** interval (ms); ingest runs continuously on its own thread |
 | `--export-csv` | *(none)* | Path to write task-history CSV on exit |
 | `--demo` | `false` | Use the built-in serial simulator (no hardware needed) |
 | `--seed` | `0` | Seed for the `--demo` simulator |
+| `--demo-rate` | `200` | Lines/second emitted by the `--demo` simulator |
 
 **Example — custom endpoint and fast refresh:**
 
@@ -222,15 +228,30 @@ python examples/plot_timeline.py --out timeline.png   # headless PNG render
 The tool expects lines in the format:
 
 ```
-Task:<name>,State:<code>
+Task:<name>,State:<code>[,Tick:<n>]
 ```
 
-| Code | State |
-|------|-----------|
-| 0 | Running |
-| 1 | Ready |
-| 2 | Blocked |
-| 3 | Suspended |
+The task name must be comma- and whitespace-free. The optional `Tick` field is a
+monotonic device tick (e.g. `xTaskGetTickCount()`); when present, timing is keyed
+off the device clock instead of host read time, which makes the timeline and
+time-in-state statistics reflect *scheduler* behaviour rather than host read
+scheduling. Codes mirror FreeRTOS `eTaskState`:
+
+| Code | State | FreeRTOS `eTaskState` |
+|------|-----------|------------------------|
+| 0 | Running | `eRunning` |
+| 1 | Ready | `eReady` |
+| 2 | Blocked | `eBlocked` |
+| 3 | Suspended | `eSuspended` |
+| 4 | Deleted | `eDeleted` |
+| 5 | Invalid | `eInvalid` |
+
+Example lines:
+
+```
+Task:LED_Blink,State:0,Tick:10234
+Task:SensorRead,State:2,Tick:10235
+```
 
 Any unrecognized code is displayed as **Unknown**. Lines that don't match the pattern are silently ignored.
 
@@ -301,6 +322,7 @@ Tests cover: serial-line parsing, state-store history tracking, CSV export, `Ser
 ```
 freertos_visualizer/
   visualize.py          # Parsing, TaskStateStore, SerialConnection, PyQt5 GUI
+  reader.py             # Threaded SerialReader: decouples ingest from render
   simulator.py          # Headless serial simulator (TaskSimulator)
   timeline.py           # Gantt segment computation + state colors
   stats.py              # Per-task statistics (compute_summary / format_summary)
@@ -342,6 +364,16 @@ Tracked as GitHub issues:
 - [ ] In-app export button / periodic autosave
 - [ ] Configurable color schemes and chart types
 - [ ] Support for additional FreeRTOS trace data (stack usage, CPU %)
+
+### From the external review ([engineering journal](docs/ENGINEERING_JOURNAL.md))
+
+- [x] [Real-time pipeline: threaded reader + queue (#18)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/18)
+- [x] [Device-tick protocol so timing reflects the device (#19)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/19)
+- [x] [Loopback integration test: no dropped lines (#21)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21)
+- [x] [Full `eTaskState` set (#23)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) · [regex anchor (#27)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/27) · [clock unify (#26)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/26) · [cleanup (#28)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/28)
+- [ ] [PEP 621 packaging (#20)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20)
+- [ ] [Firmware trace shim example (#22)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22)
+- [ ] [Bar-chart semantics (#24)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/24) · [timeline caching (#25)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/25)
 
 ---
 
