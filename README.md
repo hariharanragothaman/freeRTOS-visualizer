@@ -131,6 +131,14 @@ rtos-visualize --serial-url socket://192.168.1.10:5555 --refresh-ms 500 \
   --export-csv task_history.csv
 ```
 
+The exported CSV has one row per sample with a capture timestamp:
+
+```csv
+task_name,sample_index,timestamp,state
+LED_Blink,0,1718764812.31,Ready
+LED_Blink,1,1718764813.33,Running
+```
+
 ---
 
 ## Serial Protocol

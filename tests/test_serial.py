@@ -78,7 +78,8 @@ def test_store_max_history():
 
 
 def test_export_csv(tmp_path):
-    store = TaskStateStore()
+    clock = iter([10.0, 11.5])
+    store = TaskStateStore(clock=lambda: next(clock))
     store.ingest_line("Task:Task1,State:0")
     store.ingest_line("Task:Task1,State:1")
 
@@ -87,9 +88,9 @@ def test_export_csv(tmp_path):
 
     contents = output_file.read_text(encoding="utf-8")
     lines = [line.strip() for line in contents.splitlines() if line.strip()]
-    assert lines[0] == "task_name,sample_index,state"
-    assert "Task1,0,Running" in lines
-    assert "Task1,1,Ready" in lines
+    assert lines[0] == "task_name,sample_index,timestamp,state"
+    assert "Task1,0,10.0,Running" in lines
+    assert "Task1,1,11.5,Ready" in lines
 
 
 def test_export_csv_empty(tmp_path):
@@ -99,7 +100,7 @@ def test_export_csv_empty(tmp_path):
 
     contents = output_file.read_text(encoding="utf-8")
     lines = [line.strip() for line in contents.splitlines() if line.strip()]
-    assert lines == ["task_name,sample_index,state"]
+    assert lines == ["task_name,sample_index,timestamp,state"]
 
 
 # ---------------------------------------------------------------------------
