@@ -61,11 +61,18 @@ still win, for tests). The simulator emits ticks in demo mode.
 
 ### The test that's worth more than the rest (#21)
 
-Added `tests/test_integration_loopback.py`: it stands up a real TCP server,
-connects a `SerialConnection` over pyserial's `socket://`, bursts 2000 lines
-through `SerialReader` → `TaskStateStore`, and asserts **zero** dropped lines.
-This exercises the exact path that unit tests and the GUI's `pragma: no cover`
-never touched, and it would have caught #18.
+Added `tests/test_integration_pipeline.py`: it bursts 2000 lines through the real
+`SerialConnection` → `SerialReader` → `TaskStateStore` path and asserts **zero**
+dropped lines (every device tick present exactly once). It exercises the exact
+path unit tests and the GUI's `pragma: no cover` never touched, and would have
+caught #18.
+
+We first wrote this over a real TCP `socket://` loopback, but that proved
+non-deterministic in CI (see the post-merge note below) because the framing
+depended on pyserial's socket read timing. The final test delivers the bytes in
+adversarial, randomly-sized chunks that split lines mid-field and coalesce
+several per read — a *stronger* drop/corruption check than a clean loopback, and
+fully deterministic.
 
 ### Correctness clean-ups
 
@@ -116,18 +123,29 @@ onboarding gap and makes the tool demonstrably end-to-end.
 
 All eleven findings (#18–#28) are implemented. The deferred list is empty.
 
-### Post-merge: the loopback test caught a real bug (as intended)
+### Post-merge: the integration test caught a real bug (as intended)
 
-Right after merging, the new loopback integration test (#21) failed on slow CI
-runners — non-deterministically, 1–3 of 2000 lines "dropped". Investigation
-showed it wasn't the queue: pyserial's `readline()` returns a **partial line**
-when its read timeout fires mid-line (normal on a real UART or a loaded host),
-and we were treating that fragment as a whole line — corrupting it and the next
-one. Fixed by reassembling bytes on newline boundaries in `SerialConnection`
-(buffer the partial, only emit on `\n`), with unit tests for fragmentation and
-multi-line chunks. This is exactly the class of real-hardware bug the reviewer
-said an integration test would be "worth more than the rest combined" for — and
-it was.
+Right after merging, the integration test (#21), then written over a real TCP
+`socket://` loopback, failed on slow CI runners — non-deterministically, 1–3 of
+2000 lines "dropped". Investigation showed pyserial's `readline()` returns a
+**partial line** when its read timeout fires mid-line (normal on a real UART or
+a loaded host), and we were treating that fragment as a whole line — corrupting
+it and the next.
+
+Two fixes came out of this:
+
+1. **Real robustness fix:** `SerialConnection` now reassembles bytes on newline
+   boundaries (buffer the partial, only emit complete lines, still bounded by
+   `max_line_length`), with unit tests for fragmentation and multi-line chunks.
+   This matters for real hardware, not just CI.
+2. **Deterministic test:** the socket loopback itself was still flaky because the
+   outcome depended on pyserial's socket read timing — a third-party transport
+   detail, not our code. Replaced it with an in-process burst that drives the
+   same `SerialConnection`/`SerialReader`/store with adversarial fragmentation,
+   so the test is deterministic *and* a stronger framing check.
+
+This is exactly the class of real-hardware bug the reviewer said an integration
+test would be "worth more than the rest combined" for — and it was.
 
 ### What the reviewer said was good (kept)
 

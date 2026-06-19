@@ -376,7 +376,7 @@ Tracked as GitHub issues:
 
 - [x] [Real-time pipeline: threaded reader + queue (#18)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/18)
 - [x] [Device-tick protocol so timing reflects the device (#19)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/19)
-- [x] [Loopback integration test: no dropped lines (#21)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21)
+- [x] [End-to-end pipeline integration test: no dropped lines (#21)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/21)
 - [x] [Full `eTaskState` set (#23)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/23) · [regex anchor (#27)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/27) · [clock unify (#26)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/26) · [cleanup (#28)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/28)
 - [x] [PEP 621 packaging (#20)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/20)
 - [x] [Firmware trace shim example (#22)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/22)
