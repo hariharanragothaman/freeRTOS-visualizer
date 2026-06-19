@@ -74,15 +74,15 @@ pip install -r requirements.txt
 No board or QEMU? Run the GUI against the built-in serial simulator:
 
 ```bash
-rtos-visualize --demo
+rtos-visualize --demo                  # live bar chart
+rtos-visualize --demo --view timeline  # Gantt-style timeline
 # or
 python -m freertos_visualizer.visualize --demo
-# or
 python examples/run_demo.py
 ```
 
 The simulator emits a realistic, seeded stream of `Task:<name>,State:<code>`
-lines so you can see the live bar chart immediately. Use `--seed N` for a
+lines so you can see the visualization immediately. Use `--seed N` for a
 different but reproducible stream.
 
 ### Run (against real hardware / QEMU)
@@ -172,6 +172,27 @@ print(store.summary())   # {'LED': {'samples': 2, 'transitions': 1, ...}}
 
 ---
 
+## Timeline / Gantt View
+
+The timeline view plots each task's state over time as colored spans — far more
+useful than a momentary snapshot for understanding scheduling behavior.
+
+```bash
+rtos-visualize --demo --view timeline      # live GUI
+python examples/plot_timeline.py --out timeline.png   # headless PNG render
+```
+
+![Task state timeline (simulated)](docs/timeline_demo.png)
+
+| State | Color |
+|---|---|
+| Running | green |
+| Ready | blue |
+| Blocked | orange |
+| Suspended | red |
+
+---
+
 ## Serial Protocol
 
 The tool expects lines in the format:
@@ -241,7 +262,7 @@ Tracked as GitHub issues:
 - [ ] [Timestamped task-state history & enhanced CSV (#5)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/5)
 - [ ] [Task statistics summary (#6)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/6) — time-in-state %, transitions
 - [ ] [Developer tooling: coverage in CI, Makefile, CONTRIBUTING (#7)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/7)
-- [ ] [Timeline / Gantt chart view (#8)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/8)
+- [x] [Timeline / Gantt chart view (#8)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/8)
 - [ ] In-app export button / periodic autosave
 - [ ] Configurable color schemes and chart types
 - [ ] Support for additional FreeRTOS trace data (stack usage, CPU %)
