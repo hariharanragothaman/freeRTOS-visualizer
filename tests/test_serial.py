@@ -180,6 +180,22 @@ def test_readline_returns_empty_on_no_data():
     assert conn.readline() == ""
 
 
+def test_readline_reassembles_partial_lines():
+    # pyserial returns a partial line when its read timeout fires mid-line.
+    port = FakePort(lines=["Task:T1,", "State:0\n", "Task:T2,State:1\n"])
+    conn, _ = _make_conn(port)
+    assert conn.readline() == ""                 # only a fragment so far
+    assert conn.readline() == "Task:T1,State:0"  # fragment completed
+    assert conn.readline() == "Task:T2,State:1"
+
+
+def test_readline_splits_multiple_lines_in_one_chunk():
+    port = FakePort(lines=["Task:A,State:0\nTask:B,State:1\n"])
+    conn, _ = _make_conn(port)
+    assert conn.readline() == "Task:A,State:0"
+    assert conn.readline() == "Task:B,State:1"  # returned from buffer, no new read
+
+
 def test_readline_marks_disconnected_on_error():
     port = FakePort(lines=[], fail_after=0)
     conn, _ = _make_conn(port)
