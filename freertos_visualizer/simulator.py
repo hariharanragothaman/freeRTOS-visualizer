@@ -42,7 +42,9 @@ class TaskSimulator:
         self.tasks = list(tasks)
         if not self.tasks:
             raise ValueError("TaskSimulator requires at least one task")
-        self._rng = random.Random(seed)
+        # Non-cryptographic PRNG is intentional: this only generates synthetic
+        # demo/test data, never anything security-sensitive.
+        self._rng = random.Random(seed)  # nosec B311
         # Every task starts Ready ("1").
         self._current = {task: "1" for task in self.tasks}
         self._next_index = 0
