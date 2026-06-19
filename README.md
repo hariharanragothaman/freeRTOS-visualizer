@@ -14,6 +14,7 @@
   <a href="https://github.com/hariharanragothaman/freeRTOS-visualizer/actions/workflows/ci.yml"><img src="https://github.com/hariharanragothaman/freeRTOS-visualizer/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://codecov.io/gh/hariharanragothaman/freeRTOS-visualizer"><img src="https://codecov.io/gh/hariharanragothaman/freeRTOS-visualizer/branch/main/graph/badge.svg" alt="coverage" /></a>
   <a href="https://github.com/hariharanragothaman/freeRTOS-visualizer/actions/workflows/codeql.yml"><img src="https://github.com/hariharanragothaman/freeRTOS-visualizer/actions/workflows/codeql.yml/badge.svg" alt="CodeQL" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/hariharanragothaman/freeRTOS-visualizer"><img src="https://api.scorecard.dev/projects/github.com/hariharanragothaman/freeRTOS-visualizer/badge" alt="OpenSSF Scorecard" /></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-policy-blue" alt="security policy" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="license MIT" /></a>
   <a href="https://github.com/hariharanragothaman/freeRTOS-visualizer/stargazers"><img src="https://img.shields.io/github/stars/hariharanragothaman/freeRTOS-visualizer" alt="GitHub Stars" /></a>
@@ -262,9 +263,11 @@ make security-demo        # watch hostile device input get neutralized
 Tooling (see [SECURITY.md](SECURITY.md) for the full threat model and
 disclosure policy):
 
-- **Bandit** (SAST) and **pip-audit** (dependency CVEs) — `make security`, also in CI
+- **Bandit** (SAST) and **pip-audit** (dependency CVEs, build-blocking) — `make security`, also in CI
 - **CodeQL** semantic scanning (push/PR + weekly)
+- **OpenSSF Scorecard** supply-chain posture (weekly + on push to `main`)
 - **Dependabot** dependency & GitHub Actions updates
+- All GitHub Actions are **pinned to commit SHAs** (tamper resistance)
 
 ---
 
@@ -320,6 +323,7 @@ docs/
   workflows/ci.yml             # CI: tests + coverage (Python 3.9–3.13)
   workflows/security.yml       # Bandit (SAST) + pip-audit (dependency CVEs)
   workflows/codeql.yml         # CodeQL semantic scanning
+  workflows/scorecard.yml      # OpenSSF Scorecard supply-chain posture
   workflows/build-publish.yml  # Publish to PyPI on version tags
   dependabot.yml               # Automated dependency / actions updates
 ```

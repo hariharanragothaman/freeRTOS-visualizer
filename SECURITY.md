@@ -69,8 +69,17 @@ in [`examples/security_demo.py`](examples/security_demo.py)
 CI runs on every push and pull request:
 
 - **Bandit** — static analysis of the Python source for common security issues.
-- **pip-audit** — known-vulnerability (CVE) scanning of dependencies.
+- **pip-audit** — known-vulnerability (CVE) scanning of dependencies (build-blocking).
 - **CodeQL** — semantic code scanning (also on a weekly schedule).
+- **OpenSSF Scorecard** — automated supply-chain posture assessment, published to
+  the public Scorecard API (weekly and on push to `main`).
 - **Dependabot** — automated dependency and GitHub Actions update PRs.
+
+Supply-chain hardening:
+
+- All third-party GitHub Actions are **pinned to full commit SHAs** (with a
+  version comment), so a moved or compromised tag cannot silently change CI
+  behavior.
+- Workflows declare least-privilege `permissions`.
 
 Run the SAST + dependency checks locally with `make security`.
