@@ -229,25 +229,38 @@ def main():
     parser.add_argument("--timeout", type=float, default=1.0, help="Serial read timeout in seconds.")
     parser.add_argument("--refresh-ms", type=int, default=1000, help="UI refresh interval in milliseconds.")
     parser.add_argument("--export-csv", help="Path to export task history CSV when the UI closes.")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run against the built-in serial simulator instead of a real port (no hardware needed).",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="Seed for the --demo simulator.")
     args = parser.parse_args()
 
-    if serial is None:
-        print("pyserial is required. Install dependencies and retry.")
-        sys.exit(1)
     if QApplication is None:
         print("PyQt5 and matplotlib are required. Install dependencies and retry.")
         sys.exit(1)
 
-    conn = SerialConnection(
-        url=args.serial_url,
-        baudrate=args.baudrate,
-        timeout=args.timeout,
-    )
-    try:
+    if args.demo:
+        from freertos_visualizer.simulator import TaskSimulator
+
+        conn = TaskSimulator(seed=args.seed)
         conn.connect()
-    except Exception as e:
-        print(f"Failed to connect to serial port: {e}")
-        print("The visualizer will keep retrying in the background.")
+        print("Running in demo mode with the built-in serial simulator.")
+    else:
+        if serial is None:
+            print("pyserial is required. Install dependencies and retry.")
+            sys.exit(1)
+        conn = SerialConnection(
+            url=args.serial_url,
+            baudrate=args.baudrate,
+            timeout=args.timeout,
+        )
+        try:
+            conn.connect()
+        except Exception as e:
+            print(f"Failed to connect to serial port: {e}")
+            print("The visualizer will keep retrying in the background.")
 
     app = QApplication(sys.argv)
     vis = TaskVisualization(
