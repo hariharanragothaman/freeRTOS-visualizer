@@ -11,7 +11,8 @@
   <img src="https://img.shields.io/badge/PyQt5-GUI-green?logo=qt&logoColor=white" alt="PyQt5 GUI" />
   <img src="https://img.shields.io/badge/matplotlib-charts-orange?logo=plotly&logoColor=white" alt="matplotlib charts" />
   <img src="https://img.shields.io/badge/pyserial-serial%20IO-yellow" alt="pyserial" />
-  <img src="https://img.shields.io/badge/tests-22%20passing-brightgreen" alt="tests 22 passing" />
+  <a href="https://github.com/hariharanragothaman/freeRTOS-visualizer/actions/workflows/ci.yml"><img src="https://github.com/hariharanragothaman/freeRTOS-visualizer/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://codecov.io/gh/hariharanragothaman/freeRTOS-visualizer"><img src="https://codecov.io/gh/hariharanragothaman/freeRTOS-visualizer/branch/main/graph/badge.svg" alt="coverage" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="license MIT" /></a>
   <a href="https://github.com/hariharanragothaman/freeRTOS-visualizer/stargazers"><img src="https://img.shields.io/github/stars/hariharanragothaman/freeRTOS-visualizer" alt="GitHub Stars" /></a>
 </p>
@@ -138,17 +139,23 @@ Any unrecognized code is displayed as **Unknown**. Lines that don't match the pa
 ```bash
 git clone https://github.com/hariharanragothaman/freeRTOS-visualizer.git
 cd freeRTOS-visualizer
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+
+make install       # full install incl. GUI stack
+# or
+make install-dev   # headless: test dependencies only (no PyQt5/matplotlib)
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor workflow.
 
 ### Running Tests
 
 ```bash
-python -m pytest -v
+make test          # run the suite
+make cov           # run with a terminal coverage report
+make cov-html      # write an HTML coverage report to htmlcov/
 ```
 
-Tests cover: serial-line parsing, state-store history tracking, CSV export, `SerialConnection` reconnect/backoff logic, malformed binary input, and end-to-end pipeline integration.
+Tests cover: serial-line parsing, state-store history tracking, CSV export, `SerialConnection` reconnect/backoff logic, malformed binary input, and end-to-end pipeline integration. Coverage is reported in CI and published to [Codecov](https://codecov.io/gh/hariharanragothaman/freeRTOS-visualizer).
 
 ---
 
@@ -171,9 +178,14 @@ docs/
 
 ## Roadmap
 
-- [ ] Timestamps in task-state history (not just sample index)
+Tracked as GitHub issues:
+
+- [ ] [Headless serial simulator & demo mode (#4)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/4) — try it without hardware
+- [ ] [Timestamped task-state history & enhanced CSV (#5)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/5)
+- [ ] [Task statistics summary (#6)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/6) — time-in-state %, transitions
+- [ ] [Developer tooling: coverage in CI, Makefile, CONTRIBUTING (#7)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/7)
+- [ ] [Timeline / Gantt chart view (#8)](https://github.com/hariharanragothaman/freeRTOS-visualizer/issues/8)
 - [ ] In-app export button / periodic autosave
-- [ ] Timeline / Gantt chart view alongside bar chart
 - [ ] Configurable color schemes and chart types
 - [ ] Support for additional FreeRTOS trace data (stack usage, CPU %)
 

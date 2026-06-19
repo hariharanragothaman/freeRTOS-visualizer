@@ -2,3 +2,4 @@ pyserial
 PyQt5
 matplotlib
 pytest
+pytest-cov
