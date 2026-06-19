@@ -49,29 +49,55 @@ def parse_serial_line(line):
 
 
 class TaskStateStore:
-    def __init__(self, max_history=10_000):
-        self.task_states = {}
-        self.max_history = max_history
+    """Accumulates per-task state history with a timestamp for every sample.
 
-    def ingest_line(self, line):
+    ``task_states`` maps task name -> list of state strings (kept for backward
+    compatibility), and ``task_timestamps`` maps task name -> a parallel list of
+    monotonic-ish timestamps captured at ingest time. Pass ``clock`` (a callable
+    returning a float) to make timestamps deterministic in tests.
+    """
+
+    def __init__(self, max_history=10_000, clock=time.time):
+        self.task_states = {}
+        self.task_timestamps = {}
+        self.max_history = max_history
+        self._clock = clock
+
+    def ingest_line(self, line, timestamp=None):
         parsed = parse_serial_line(line)
         if not parsed:
             return None
 
         task_name, task_state = parsed
+        if timestamp is None:
+            timestamp = self._clock()
+
         history = self.task_states.setdefault(task_name, [])
+        stamps = self.task_timestamps.setdefault(task_name, [])
         history.append(task_state)
+        stamps.append(timestamp)
         if len(history) > self.max_history:
-            del history[: len(history) - self.max_history]
+            overflow = len(history) - self.max_history
+            del history[:overflow]
+            del stamps[:overflow]
         return parsed
+
+    def history(self, task_name):
+        """Return a list of ``(timestamp, state)`` tuples for ``task_name``."""
+        return list(zip(
+            self.task_timestamps.get(task_name, []),
+            self.task_states.get(task_name, []),
+        ))
 
     def export_csv(self, output_path):
         with open(output_path, "w", newline="", encoding="utf-8") as csv_file:
             writer = csv.writer(csv_file)
-            writer.writerow(["task_name", "sample_index", "state"])
-            for task_name, history in self.task_states.items():
-                for sample_index, state in enumerate(history):
-                    writer.writerow([task_name, sample_index, state])
+            writer.writerow(["task_name", "sample_index", "timestamp", "state"])
+            for task_name, states in self.task_states.items():
+                stamps = self.task_timestamps.get(task_name, [])
+                for sample_index, state in enumerate(states):
+                    timestamp = stamps[sample_index] if sample_index < len(stamps) else ""
+                    writer.writerow([task_name, sample_index, timestamp, state])
 
 
 class SerialConnection:
