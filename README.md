@@ -18,8 +18,29 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> · <a href="#how-it-works">How It Works</a> · <a href="#quick-start">Quick Start</a> · <a href="#cli-options">CLI Options</a> · <a href="#serial-protocol">Serial Protocol</a> · <a href="#development">Development</a> · <a href="#project-layout">Project Layout</a> · <a href="#roadmap">Roadmap</a>
+  <a href="#demo">Demo</a> · <a href="#features">Features</a> · <a href="#how-it-works">How It Works</a> · <a href="#quick-start">Quick Start</a> · <a href="#cli-options">CLI Options</a> · <a href="#serial-protocol">Serial Protocol</a> · <a href="#development">Development</a> · <a href="#project-layout">Project Layout</a> · <a href="#roadmap">Roadmap</a>
 </p>
+
+---
+
+## Demo
+
+End-to-end demos below are generated **headlessly** from the built-in serial
+simulator — no hardware required — by
+[`examples/record_demo.py`](examples/record_demo.py). They show the exact same
+rendering the live GUI produces.
+
+| Live bar chart (`--demo`) | Timeline view (`--demo --view timeline`) |
+|:---:|:---:|
+| ![Bar chart demo](docs/demo_bar.gif) | ![Timeline demo](docs/demo_timeline.gif) |
+
+Reproduce them yourself:
+
+```bash
+make gifs
+# or
+python examples/record_demo.py --mode both --out-dir docs
+```
 
 ---
 
@@ -241,14 +262,24 @@ Tests cover: serial-line parsing, state-store history tracking, CSV export, `Ser
 
 ```
 freertos_visualizer/
-  visualize.py          # Core logic: parsing, state store, serial, GUI
-tests/
-  test_serial.py        # 22 unit tests (parser, store, serial mock, CSV)
+  visualize.py          # Parsing, TaskStateStore, SerialConnection, PyQt5 GUI
+  simulator.py          # Headless serial simulator (TaskSimulator)
+  timeline.py           # Gantt segment computation + state colors
+  stats.py              # Per-task statistics (compute_summary / format_summary)
+  render.py             # Shared matplotlib drawing (bar chart + timeline)
+examples/
+  run_demo.py           # Launch the GUI against the simulator
+  print_stats.py        # Headless stats table
+  plot_timeline.py      # Headless timeline PNG
+  record_demo.py        # Headless animated demo GIFs
+tests/                  # ~60 unit tests (parser, store, serial, sim, stats,
+                        #   timeline, render); coverage reported to Codecov
 docs/
-  paper.md              # JOSS-style paper
-  paper.bib
+  demo_bar.gif          # Generated bar-chart demo
+  demo_timeline.gif     # Generated timeline demo
+  paper.md / paper.bib  # JOSS-style paper
 .github/workflows/
-  ci.yml                # CI: tests on push to main (Python 3.9–3.13)
+  ci.yml                # CI: tests + coverage (Python 3.9–3.13)
   build-publish.yml     # Publish to PyPI on version tags
 ```
 

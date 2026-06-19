@@ -1,5 +1,6 @@
 pyserial
 PyQt5
 matplotlib
+pillow
 pytest
 pytest-cov

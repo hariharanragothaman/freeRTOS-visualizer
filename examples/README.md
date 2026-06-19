@@ -8,6 +8,7 @@ QEMU — they use the built-in serial simulator.
 | `run_demo.py` | Launches the PyQt5 GUI against the serial simulator (needs the GUI stack). |
 | `print_stats.py` | Headless: simulates a run and prints per-task statistics. |
 | `plot_timeline.py` | Headless: simulates a run and renders a Gantt-style timeline PNG (needs matplotlib). |
+| `record_demo.py` | Headless: records animated bar-chart and timeline demo GIFs (needs matplotlib + pillow). |
 
 ## Running
 
