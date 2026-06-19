@@ -26,7 +26,25 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install pyserial pytest pytest-cov
 
-    - name: Run tests
-      run: python -m pytest -v
+    - name: Run tests with coverage
+      run: |
+        python -m pytest -v \
+          --cov=freertos_visualizer \
+          --cov-report=term-missing \
+          --cov-report=xml
+
+    - name: Coverage summary
+      if: always()
+      run: |
+        python -m coverage report >> "$GITHUB_STEP_SUMMARY" || true
+
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.12'
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: freertos-visualizer
+        fail_ci_if_error: false
