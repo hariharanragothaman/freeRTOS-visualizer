@@ -104,7 +104,9 @@ here. Added [`firmware/`](../firmware/): a portable, dependency-free
 `Task:<name>,State:<code>,Tick:<n>` for every task (sanitizing names to the
 comma/whitespace-free field the host parser expects, and using the device tick).
 A `firmware/README.md` documents the 3-step integration. This closes the biggest
-onboarding gap and makes the tool demonstrably end-to-end.
+onboarding gap and makes the tool demonstrably end-to-end. (Follow-up: a
+runnable QEMU image that links this shim now proves it — see "Closing the
+firmware gap" below.)
 
 ### Rendering polish (#24, #25)
 
@@ -146,6 +148,35 @@ Two fixes came out of this:
 
 This is exactly the class of real-hardware bug the reviewer said an integration
 test would be "worth more than the rest combined" for — and it was.
+
+### Closing the firmware gap: a runnable QEMU demo (#22 follow-up)
+
+The reviewer's standing objection was fair: a `trace_shim.c` that nobody had
+*run* is unverified C. So [`firmware/qemu-demo/`](../firmware/qemu-demo/) now
+links that exact shim into a FreeRTOS image for QEMU's `mps2-an385` (Cortex-M3)
+and boots it:
+
+- Board glue only — `uart.c` (CMSDK UART = `trace_serial_write`), `startup.c`
+  (vector table → FreeRTOS `vPort*`/`xPort*` handlers), `mps2_m3.ld`,
+  `FreeRTOSConfig.h`. The shim itself is compiled unmodified from `../trace_shim.c`.
+- `make verify` boots the ELF headless and pipes the captured UART through the
+  **host** `parse_serial_line` — the same code the GUI uses — asserting multiple
+  tasks, advancing device ticks, and zero unparseable lines. A new
+  `.github/workflows/firmware.yml` runs this on every push, so the firmware claim
+  is continuously verified by CI, not just by me once.
+
+**The demo immediately earned its keep.** The first boot emitted exactly one
+snapshot and then froze, with one task name corrupted to `__`. Root cause:
+`trace_emit_snapshot()` puts a `TRACE_MAX_TASKS`-entry `TaskStatus_t` array
+*and* the line buffer on the trace task's stack, but `trace_shim_start()` only
+requests `configMINIMAL_STACK_SIZE * 2`. With a small `configMINIMAL_STACK_SIZE`
+that's a stack overflow on the first call — silent memory corruption. Fixes:
+sized `configMINIMAL_STACK_SIZE` for the array, turned on
+`configCHECK_FOR_STACK_OVERFLOW` with a hook that reports the failure over the
+same UART, and documented the trace-task stack sizing as a porting note. After
+that, a 4-second run yields ~380 lines, 6 tasks across Running/Ready/Blocked/
+Suspended, ticks advancing 1 → 3100 — over both `-serial stdio` and the
+documented `socket://` TCP transport.
 
 ### What the reviewer said was good (kept)
 

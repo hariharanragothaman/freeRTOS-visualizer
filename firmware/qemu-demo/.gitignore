@@ -1,0 +1,4 @@
+# Fetched at build time by the Makefile (pinned to KERNEL_VERSION).
+FreeRTOS-Kernel/
+# Build artifacts.
+build/
