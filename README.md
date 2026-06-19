@@ -256,9 +256,33 @@ scheduling. Codes mirror FreeRTOS `eTaskState`:
 | 4 | Deleted | `eDeleted` |
 | 5 | Invalid | `eInvalid` |
 
-Example lines:
+### Clock metadata (so ticks become seconds)
+
+A `Tick` is a *count*, not seconds. To let the host show real time, the device
+should announce its clock once (and periodically) with out-of-band metadata
+lines:
 
 ```
+TickRate:<hz>     # ticks per second, e.g. configTICK_RATE_HZ
+TickBits:<n>      # tick counter width: 32, or 16 for configUSE_16_BIT_TICKS
+```
+
+- **`TickRate`** lets the host convert ticks → seconds and label the timeline
+  `Time (s)`. **Without it the host labels the axis `Device ticks`** rather than
+  claim a unit it can't justify.
+- **`TickBits`** lets the host unwrap counter wraparound (32-bit ticks wrap after
+  ~49.7 days at 1 kHz; 16-bit wrap every ~65.5 s). The host accumulates a 64-bit
+  offset so the timeline never runs backwards on a wrap.
+
+The host also **locks the clock domain** on the first sample: a stream may be
+all-tick *or* all-host-time, never a mix — a line whose domain disagrees is
+rejected, so device ticks (~10³) and host epoch seconds (~10⁹) can't interleave.
+
+Example stream:
+
+```
+TickRate:1000
+TickBits:32
 Task:LED_Blink,State:0,Tick:10234
 Task:SensorRead,State:2,Tick:10235
 ```

@@ -217,6 +217,59 @@ Attestation of the fix (Docker, Linux + local macOS):
 So both the genuine `socket://` transport *and* the deterministic in-process
 fragmentation test now guard the no-dropped-lines property, and neither is flaky.
 
+## Round 2 review: the device-tick semantics I'd just added were lying differently
+
+The reviewer read the actual diffs and found that the device-tick change — the
+half meant to stop the timeline from lying about *time* — introduced a new way to
+lie. Four findings (#44–#47), all fixed in `fix/device-tick-semantics`.
+
+### #44 — "Time (s)" axis was actually plotting raw ticks
+
+`ingest_line` stored `float(tick)` and `render.py` labeled the x-axis
+`"Time (s)"`, but a tick is a *count*. At `configTICK_RATE_HZ=1000` the journal's
+own "1 → 3751 over ~4 s" meant the axis read 0–3751 for a 3.75 s capture — off by
+1000×. The host can't fix this alone because the rate isn't in the protocol.
+
+Decision (the reviewer asked me to state it): **add the rate to the protocol**
+rather than just relabel. The device now announces `TickRate:<hz>` (and
+`TickBits:<n>`) as out-of-band metadata; the store converts ticks→seconds via
+`time_scale` and the timeline labels `"Time (s)"`. **When no rate has been
+announced, the axis honestly reads `"Device ticks"`** instead of claiming
+seconds. End-to-end proof: the QEMU demo now emits `TickRate:1000` and
+`make verify` reports `Seconds: 0.001 -> 3.050 s` for the same run that used to
+read "3050 ticks."
+
+### #45 — tick wraparound, hidden by the render clamp
+
+`TickType_t` wraps (~49.7 days for 32-bit at 1 kHz; every ~65.5 s for
+`configUSE_16_BIT_TICKS`). On wrap the stored timestamp jumped backward;
+`_segments_for` produced `end < start`, and `render.py`'s `max(end-start, 0)`
+silently collapsed the segment to zero width — "looks fine, is wrong." Stats'
+`total_time` could go negative and poison every percentage.
+
+Fix at the source: `ingest_line` unwraps via `_unwrap_tick` — any strict
+decrease is a wrap (device ticks are non-decreasing between snapshots), so it
+accumulates one `tick_bits`-wide modulus into a 64-bit offset. `TickBits` makes
+16- and 32-bit counters both unwrap correctly. Tested past the boundary with an
+8-bit counter (`tick_bits=8`, ticks `250,255,2,10,255,0,5` → monotonic
+`250…517`).
+
+### #46 — optional `Tick` invited mixed clock domains
+
+The grammar made `Tick` optional and `ingest_line` chose per line (tick, else
+host epoch seconds ~1.7×10⁹). A stream that ever mixed the two would interleave
+~10³ and ~10⁹ in one history. Fix: the store **locks the clock domain on the
+first sample**; a later line whose domain disagrees is rejected, not stored.
+
+### #47 — the socket test's `dropped == 0` was vacuous
+
+Fair hit: queue 100k, burst 2k, no render competing — drops were impossible by
+construction, so the `queue.Full`/`dropped` path was never exercised. Added
+`tests/test_backpressure.py`: a `max_queue=10` reader with a 5000-line sustained
+source that saturates the queue, asserting the real accounting
+`dropped == sent - delivered` (and `dropped > 0`). The companion test confirms
+zero drops when the queue is large enough.
+
 ### What the reviewer said was good (kept)
 
 Clean module decomposition (parse / store / serial / reader / render / timeline

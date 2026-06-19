@@ -69,3 +69,25 @@ def test_timeline_has_row_per_task(ax):
     draw_timeline(ax, store)
     assert ax.get_title() == "Task State Timeline"
     assert [lbl.get_text() for lbl in ax.get_yticklabels()] == ["A", "B"]
+
+
+def test_timeline_axis_label_is_ticks_without_rate(ax):
+    # Device ticks, no announced rate: axis must say "Device ticks", not seconds.
+    store = TaskStateStore()
+    store.ingest_line("Task:A,State:0,Tick:0")
+    store.ingest_line("Task:A,State:1,Tick:100")
+    draw_timeline(ax, store)
+    assert ax.get_xlabel() == "Device ticks"
+
+
+def test_timeline_axis_scales_to_seconds_with_rate(ax):
+    # With TickRate the axis reads seconds and segments are scaled by 1/rate.
+    store = TaskStateStore()
+    store.ingest_line("TickRate:1000")
+    store.ingest_line("Task:A,State:0,Tick:0")
+    store.ingest_line("Task:A,State:1,Tick:2000")  # 2000 ticks = 2.0 s
+    draw_timeline(ax, store)
+    assert ax.get_xlabel() == "Time (s)"
+    # The single span should span 0 -> 2.0 seconds, not 0 -> 2000.
+    xmin, xmax = ax.get_xlim()
+    assert xmax <= 10  # would be ~2000 if unscaled
