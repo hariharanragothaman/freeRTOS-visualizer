@@ -162,6 +162,11 @@ class SerialConnection:
         self._backoff = _BACKOFF_INITIAL_S
         self._last_attempt = 0.0
         self.connected = False
+        # Bytes read but not yet terminated by a newline. pyserial's readline
+        # returns a *partial* line when its timeout fires mid-line (common on a
+        # real UART or a loaded host), so we reassemble across reads instead of
+        # treating a fragment as a whole — otherwise that line is corrupted/lost.
+        self._buf = b""
 
     def connect(self):
         if serial is None:
@@ -171,6 +176,7 @@ class SerialConnection:
         )
         self.connected = True
         self._backoff = _BACKOFF_INITIAL_S
+        self._buf = b""
 
     def readline(self):
         if not self.connected:
@@ -184,16 +190,27 @@ class SerialConnection:
                 self._backoff = min(self._backoff * _BACKOFF_FACTOR, _BACKOFF_MAX_S)
                 return ""
 
-        try:
-            raw = self._port.readline()
-            # Bound the line so a device that never sends a newline cannot make
-            # a single read grow without limit.
+        # Only read more when we don't already have a complete buffered line.
+        if b"\n" not in self._buf:
+            try:
+                self._buf += self._port.readline()
+            except Exception:
+                self.connected = False
+                self._last_attempt = self._clock()
+                self._buf = b""
+                return ""
+
+        if b"\n" in self._buf:
+            raw, _, self._buf = self._buf.partition(b"\n")
+            # Bound the line so a hostile device cannot push an unbounded one.
             raw = security.clamp_line(raw, self.max_line_length)
             return raw.decode("utf-8", errors="replace").strip()
-        except Exception:
-            self.connected = False
-            self._last_attempt = self._clock()
-            return ""
+
+        # No complete line yet. Bound the partial so a device that never sends a
+        # newline cannot grow the buffer without limit.
+        if len(self._buf) > self.max_line_length:
+            self._buf = self._buf[-self.max_line_length:]
+        return ""
 
     def close(self):
         if self._port is not None:

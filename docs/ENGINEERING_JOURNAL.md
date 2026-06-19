@@ -116,6 +116,19 @@ onboarding gap and makes the tool demonstrably end-to-end.
 
 All eleven findings (#18–#28) are implemented. The deferred list is empty.
 
+### Post-merge: the loopback test caught a real bug (as intended)
+
+Right after merging, the new loopback integration test (#21) failed on slow CI
+runners — non-deterministically, 1–3 of 2000 lines "dropped". Investigation
+showed it wasn't the queue: pyserial's `readline()` returns a **partial line**
+when its read timeout fires mid-line (normal on a real UART or a loaded host),
+and we were treating that fragment as a whole line — corrupting it and the next
+one. Fixed by reassembling bytes on newline boundaries in `SerialConnection`
+(buffer the partial, only emit on `\n`), with unit tests for fragmentation and
+multi-line chunks. This is exactly the class of real-hardware bug the reviewer
+said an integration test would be "worth more than the rest combined" for — and
+it was.
+
 ### What the reviewer said was good (kept)
 
 Clean module decomposition (parse / store / serial / reader / render / timeline
