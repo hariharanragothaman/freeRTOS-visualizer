@@ -175,13 +175,14 @@ class MplCanvas(FigureCanvas):
 
 
 class TaskVisualization(QMainWindow if QMainWindow is not None else object):
-    def __init__(self, serial_conn, refresh_interval_ms=1000, export_csv_path=None):
+    def __init__(self, serial_conn, refresh_interval_ms=1000, export_csv_path=None, view="bar"):
         if QMainWindow is None:
             raise RuntimeError("PyQt5 is required to launch the visualizer UI.")
         super().__init__()
         self.serial_conn = serial_conn
         self.refresh_interval_ms = refresh_interval_ms
         self.export_csv_path = export_csv_path
+        self.view = view
         self.store = TaskStateStore()
 
         self.initUI()
@@ -211,7 +212,10 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
         line = self.serial_conn.readline()
         if line:
             self.store.ingest_line(line)
-        self.plot_task_states()
+        if self.view == "timeline":
+            self.plot_timeline()
+        else:
+            self.plot_task_states()
 
     def plot_task_states(self):
         self.canvas.axes.clear()
@@ -247,6 +251,47 @@ class TaskVisualization(QMainWindow if QMainWindow is not None else object):
 
         self.canvas.draw()
 
+    def plot_timeline(self):
+        from matplotlib.patches import Patch
+
+        from freertos_visualizer.timeline import (
+            STATE_COLORS,
+            compute_segments,
+            state_color,
+        )
+
+        self.canvas.axes.clear()
+        segments = compute_segments(self.store)
+        tasks = list(segments.keys())
+
+        if not tasks:
+            self.canvas.axes.set_title("Task State Timeline")
+            self.canvas.axes.text(0.5, 0.5, "Waiting for task data...", ha="center", va="center")
+            self.canvas.draw()
+            return
+
+        row_height = 9
+        row_step = 10
+        for idx, task in enumerate(tasks):
+            spans = segments[task]
+            xranges = [(start, max(end - start, 0.0)) for (start, end, _state) in spans]
+            colors = [state_color(state) for (_s, _e, state) in spans]
+            self.canvas.axes.broken_barh(
+                xranges, (idx * row_step, row_height), facecolors=colors,
+            )
+
+        self.canvas.axes.set_yticks([idx * row_step + row_height / 2 for idx in range(len(tasks))])
+        self.canvas.axes.set_yticklabels(tasks)
+        self.canvas.axes.set_xlabel("Time (s)")
+        self.canvas.axes.set_title("Task State Timeline")
+        self.canvas.axes.legend(
+            handles=[Patch(color=color, label=state) for state, color in STATE_COLORS.items()],
+            loc="upper right",
+            fontsize="small",
+            ncol=len(STATE_COLORS),
+        )
+        self.canvas.draw()
+
     def closeEvent(self, event):
         if self.export_csv_path:
             self.store.export_csv(self.export_csv_path)
@@ -267,6 +312,12 @@ def main():
         help="Run against the built-in serial simulator instead of a real port (no hardware needed).",
     )
     parser.add_argument("--seed", type=int, default=0, help="Seed for the --demo simulator.")
+    parser.add_argument(
+        "--view",
+        choices=("bar", "timeline"),
+        default="bar",
+        help="Visualization style: live bar chart (default) or Gantt-style timeline.",
+    )
     args = parser.parse_args()
 
     if QApplication is None:
@@ -299,6 +350,7 @@ def main():
         conn,
         refresh_interval_ms=args.refresh_ms,
         export_csv_path=args.export_csv,
+        view=args.view,
     )
     vis.show()
     sys.exit(app.exec_())

@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test cov cov-html demo stats clean
+.PHONY: help install install-dev test cov cov-html demo stats timeline clean
 
 PY ?= python3
 VENV ?= .venv
@@ -13,6 +13,7 @@ help:
 	@echo "  cov-html     Run tests and write an HTML coverage report to htmlcov/"
 	@echo "  demo         Run the headless serial-simulator demo"
 	@echo "  stats        Print task statistics from a simulated run"
+	@echo "  timeline     Render a Gantt-style timeline PNG from a simulated run"
 	@echo "  clean        Remove caches and coverage artifacts"
 
 $(BIN)/python:
@@ -40,6 +41,9 @@ demo:
 
 stats:
 	$(BIN)/python examples/print_stats.py
+
+timeline:
+	$(BIN)/python examples/plot_timeline.py --out timeline.png
 
 clean:
 	rm -rf .pytest_cache htmlcov .coverage coverage.xml
