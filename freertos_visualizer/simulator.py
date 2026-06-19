@@ -46,7 +46,7 @@ class TaskSimulator:
     """
 
     def __init__(self, tasks=DEFAULT_TASKS, seed=0, emit_tick=False, tick_step=1,
-                 rate_hz=None, _sleep=time.sleep):
+                 rate_hz=None, tick_rate_hz=None, _sleep=time.sleep):
         self.tasks = list(tasks)
         if not self.tasks:
             raise ValueError("TaskSimulator requires at least one task")
@@ -60,6 +60,10 @@ class TaskSimulator:
         self.emit_tick = emit_tick
         self.tick_step = tick_step
         self.rate_hz = rate_hz
+        # When set (with emit_tick), the first emitted line announces TickRate so
+        # the host can convert the simulated ticks into real seconds.
+        self.tick_rate_hz = tick_rate_hz
+        self._meta_emitted = False
         self._sleep = _sleep
         self.connected = False
 
@@ -75,6 +79,12 @@ class TaskSimulator:
 
     def next_line(self):
         """Return the next protocol line as a string."""
+        # Announce the tick rate once, before any sample, so the host learns the
+        # device clock and the timeline reads in seconds.
+        if self.emit_tick and self.tick_rate_hz and not self._meta_emitted:
+            self._meta_emitted = True
+            return f"TickRate:{self.tick_rate_hz}"
+
         task = self.tasks[self._next_index % len(self.tasks)]
         self._next_index += 1
         new_state = self._advance(self._current[task])

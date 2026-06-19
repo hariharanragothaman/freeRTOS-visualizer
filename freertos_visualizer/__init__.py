@@ -13,6 +13,7 @@ from freertos_visualizer.visualize import (
     STATE_DICT,
     SerialConnection,
     TaskStateStore,
+    parse_meta_line,
     parse_serial_line,
 )
 
@@ -29,6 +30,7 @@ __all__ = [
     "SegmentCache",
     "STATE_COLORS",
     "parse_serial_line",
+    "parse_meta_line",
     "sanitize_csv_field",
     "sanitize_display_text",
     "strip_ansi",

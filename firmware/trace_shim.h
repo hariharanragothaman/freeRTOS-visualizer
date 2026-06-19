@@ -13,6 +13,10 @@ extern "C" {
  * serial transport the host visualizer reads. Must be callable from a task. */
 extern void trace_serial_write(const char *line);
 
+/* Announce the device clock (TickRate:/TickBits:) so the host can convert ticks
+ * to seconds and unwrap wraparound. Safe to call from a task. */
+void trace_emit_meta(void);
+
 /* Emit one snapshot (one line per task) immediately. */
 void trace_emit_snapshot(void);
 
