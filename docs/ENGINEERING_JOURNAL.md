@@ -178,6 +178,45 @@ that, a 4-second run yields ~380 lines, 6 tasks across Running/Ready/Blocked/
 Suspended, ticks advancing 1 → 3100 — over both `-serial stdio` and the
 documented `socket://` TCP transport.
 
+### Restoring the `socket://` loopback test — and proving it cross-platform
+
+The reviewer specifically wanted the *real* socket transport under test, not
+just the in-process fragmentation test. I'd deleted the original socket loopback
+because it was flaky on CI; the right answer was to understand *why* and fix it
+properly rather than avoid it.
+
+Investigation (with evidence, not guesses):
+
+- The in-process pipeline never drops: 40/40 in-process runs delivered all 2000
+  lines in ~0.13 s each. So the framing/reassembly/queue code is correct.
+- The real `socket://` path flaked at ~1–4%. Instrumenting the failures showed
+  the signature `ticks=0/2000 connects=1 reconnects=0` — i.e. the client
+  connected once and received **nothing**, with zero drops and zero reconnects.
+  That is a connected-but-no-data race at TCP *connection setup* (hammering
+  loopback connect/accept on ephemeral ports), **not** a dropped line. TCP is
+  reliable: once bytes flow, they all arrive and our reassembly delivers them.
+- To answer "is this a macOS-only artifact?", I ran it on Linux in Docker
+  (`python:3.12-slim`). Same class of failure (~1/100), so it's inherent to the
+  socket setup, not the host OS.
+
+Fix: the restored test separates the two concerns it had been conflating. It
+retries **connection establishment**, but on any attempt where data actually
+flows it requires an exact, lossless count and `reader.dropped == 0`. A partial
+delivery or any drop fails immediately and is never retried — only a no-data
+connection is retried. A dropped *connection* is not a dropped *line*.
+
+Attestation of the fix (Docker, Linux + local macOS):
+
+| Harness | Platform | Runs | Failures |
+|---------|----------|------|----------|
+| raw pipeline, 1 connection | Linux | 100 | 1 (the `ticks=0` race) |
+| raw pipeline, +4 conn retries | Linux | 150 | 0 |
+| pytest test (retry wrapper) | Linux (Docker) | 60 | 0 |
+| pytest test (retry wrapper) | macOS | 40 | 0 |
+
+So both the genuine `socket://` transport *and* the deterministic in-process
+fragmentation test now guard the no-dropped-lines property, and neither is flaky.
+
 ### What the reviewer said was good (kept)
 
 Clean module decomposition (parse / store / serial / reader / render / timeline
