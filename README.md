@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>Real-time visualization of FreeRTOS task states over serial. Open-source and cross-platform.</b>
+  <b>Live task-state visualization for FreeRTOS over serial. Open-source and cross-platform.</b>
 </p>
 
 <p align="center">
@@ -89,7 +89,7 @@ python examples/record_demo.py --mode both --out-dir docs
 ## Features
 
 - **Zero On-Target Instrumentation** — no J-Link, RTT, recorder library, or DWT counter; a `printf`-grade UART line is the entire device-side requirement (see [Why this tool?](#why-this-tool))
-- **Real-Time Visualization** — monitor task states (Running, Ready, Blocked, Suspended) as they change
+- **Live Task-State View** — watch task states (Running, Ready, Blocked, Suspended) update as they change (snapshot-rate, not event-rate — see [Why this tool?](#why-this-tool))
 - **Dynamic Bar Charts** — each task's current state rendered as a live-updating bar chart
 - **CSV Data Export** — export the full task-state history to a CSV file on exit via `--export-csv`
 - **Automatic Reconnect** — if the serial link drops, the tool retries with exponential backoff
